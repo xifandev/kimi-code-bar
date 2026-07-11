@@ -1,4 +1,4 @@
-# KimiBar
+# KimiCodeBar
 
 一个简洁的 macOS 菜单栏小工具，实时显示 [Kimi Code](https://www.kimi.com/code) 的额度使用情况。
 
