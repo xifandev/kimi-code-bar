@@ -65,136 +65,236 @@ enum MenuBarTextRenderer {
 
 struct KimiMenu: View {
     @StateObject private var model = KimiBarModel.shared
-    @State private var editingKey = ""
-    @State private var isEditingKey = false
+    @State private var showSettings = false
+    @State private var kimiVersion = "检测中…"
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
     private let githubURL = URL(string: "https://github.com/xifandev/KimiBar")!
 
     var body: some View {
         VStack(spacing: 0) {
-            // 统计区域
+            // 1. 统计区域
             if let quota = model.quota {
                 QuotaDashboard(quota: quota, isLoading: model.isLoading)
                     .padding(.top, 20)
             } else {
-                VStack(spacing: 6) {
-                    if model.isLoading {
-                        LoadingRing()
-                            .padding(.bottom, 4)
-                    }
-                    Text(model.text)
-                        .font(.system(size: 22, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 120)
-                .padding(.top, 20)
+                Text(model.text)
+                    .font(.system(size: 22, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .padding(.top, 20)
             }
 
+            // 2. 分割线
             Divider()
                 .padding(.vertical, 16)
 
-            // API Key 区域
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Key")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                if isEditingKey || model.key.isEmpty {
-                    HStack(spacing: 10) {
-                        SecureField("sk-kimi-...", text: $editingKey)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: .infinity)
-                            .onChange(of: editingKey) { newValue in
-                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if trimmed != newValue {
-                                    editingKey = trimmed
-                                }
-                            }
-
-                        Button(action: saveKey) {
-                            Text("保存")
-                                .font(.system(size: 13))
-                        }
-                        .disabled(editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .cursor(.pointingHand)
-                    }
-                } else {
-                    HStack(spacing: 10) {
-                        Text(maskedKey(model.key))
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color.secondary.opacity(0.85))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                        Button(action: {
-                            editingKey = model.key
-                            isEditingKey = true
-                        }) {
-                            Text("修改")
-                                .font(.system(size: 13))
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .cursor(.pointingHand)
-                    }
-                    .frame(maxWidth: .infinity)
+            // 3. 操作按钮
+            HStack(spacing: 10) {
+                Button(action: { model.refresh() }) {
+                    Text("刷新")
+                        .font(.system(size: 13))
                 }
-
-                if let error = model.errorMessage {
-                    ErrorMessageView(message: error)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 12)
-
-            // 底部快捷方式和操作
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ShortcutLink(
-                        title: "KimiCode 控制台",
-                        icon: "link",
-                        url: consoleURL
-                    )
-
-                    ShortcutLink(
-                        title: "GitHub",
-                        icon: "github-icon",
-                        url: githubURL,
-                        isCustomIcon: true
-                    )
-                }
+                .disabled(model.key.isEmpty || model.isLoading)
+                .controlSize(.small)
+                .cursor(.pointingHand)
 
                 Spacer()
 
-                HStack(spacing: 10) {
-                    Button(action: { model.refresh() }) {
-                        Text("刷新")
-                            .font(.system(size: 13))
-                    }
-                    .disabled(model.key.isEmpty || model.isLoading)
-                    .controlSize(.small)
-                    .cursor(.pointingHand)
-
-                    Button(action: { NSApplication.shared.terminate(nil) }) {
-                        Text("退出")
-                            .font(.system(size: 13))
-                    }
-                    .controlSize(.small)
-                    .cursor(.pointingHand)
+                Button(action: { showSettings = true }) {
+                    Text("设置")
+                        .font(.system(size: 13))
                 }
+                .controlSize(.small)
+                .cursor(.pointingHand)
+
+                Button(action: { NSApplication.shared.terminate(nil) }) {
+                    Text("退出")
+                        .font(.system(size: 13))
+                }
+                .controlSize(.small)
+                .cursor(.pointingHand)
+            }
+
+            // 4. 快捷链接
+            HStack(spacing: 16) {
+                ShortcutLink(
+                    title: "KimiCode 控制台",
+                    icon: "link",
+                    url: consoleURL
+                )
+
+                ShortcutLink(
+                    title: "GitHub",
+                    icon: "github-icon",
+                    url: githubURL,
+                    isCustomIcon: true
+                )
+
+                Spacer()
+            }
+            .padding(.top, 14)
+
+            // 5. 分割线
+            Divider()
+                .padding(.vertical, 14)
+
+            // 6. 底部 KimiCode 版本号
+            HStack {
+                Text("KimiCode Version \(formatKimiVersion(kimiVersion))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary.opacity(0.7))
+
+                Spacer()
             }
             .padding(.bottom, 14)
         }
         .padding(.horizontal, 18)
         .frame(width: 340)
         .fixedSize(horizontal: false, vertical: true)
+        .popover(isPresented: $showSettings, arrowEdge: .bottom) {
+            SettingsView()
+        }
+        .onAppear {
+            loadKimiVersion()
+        }
+    }
+
+    private func loadKimiVersion() {
+        Task {
+            let version = await detectKimiCLIVersion()
+            await MainActor.run {
+                kimiVersion = version
+            }
+        }
+    }
+
+    private func detectKimiCLIVersion() async -> String {
+        let result = await runKimiCommand(arguments: ["--version"])
+        let output = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return output.isEmpty || output.contains("No such file") ? "未检测到" : output
+    }
+
+    private func runKimiCommand(arguments: [String]) async -> (output: String, exitCode: Int32) {
+        return await Task.detached(priority: .utility) {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            let candidates = [
+                "kimi",
+                "\(home)/.kimi-code/bin/kimi",
+                "\(home)/.kimi/bin/kimi",
+                "/usr/local/bin/kimi",
+                "/opt/homebrew/bin/kimi"
+            ]
+
+            for kimiPath in candidates {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/bin/bash")
+                let argsString = arguments.map { "\($0)" }.joined(separator: " ")
+                task.arguments = ["-lc", "\(kimiPath) \(argsString)"]
+
+                let pipe = Pipe()
+                task.standardOutput = pipe
+                task.standardError = pipe
+
+                do {
+                    try task.run()
+                    task.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data, encoding: .utf8) ?? ""
+                    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if task.terminationStatus == 0 {
+                        return (trimmed, 0)
+                    }
+
+                    let lower = trimmed.lowercased()
+                    if lower.contains("no such file") || lower.contains("command not found") || lower.contains("permission denied") {
+                        continue
+                    }
+
+                    return (trimmed, task.terminationStatus)
+                } catch {
+                    continue
+                }
+            }
+            return ("", -1)
+        }.value
+    }
+
+    private func formatKimiVersion(_ version: String) -> String {
+        guard version != "未检测到" else { return "未检测到" }
+        let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+        if let last = components.last {
+            return String(last)
+        }
+        return version
+    }
+}
+
+struct SettingsView: View {
+    @StateObject private var model = KimiBarModel.shared
+    @State private var editingKey = ""
+    @State private var isEditingKey = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("API Key")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            if isEditingKey || model.key.isEmpty {
+                HStack(spacing: 10) {
+                    SecureField("sk-kimi-...", text: $editingKey)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: .infinity)
+                        .onChange(of: editingKey) { _, newValue in
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed != newValue {
+                                editingKey = trimmed
+                            }
+                        }
+
+                    Button(action: saveKey) {
+                        Text("保存")
+                            .font(.system(size: 13))
+                    }
+                    .disabled(editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .cursor(.pointingHand)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    Text(maskedKey(model.key))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.secondary.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                    Button(action: {
+                        editingKey = model.key
+                        isEditingKey = true
+                    }) {
+                        Text("修改")
+                            .font(.system(size: 13))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .cursor(.pointingHand)
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            if let error = model.errorMessage {
+                ErrorMessageView(message: error)
+            }
+        }
+        .frame(width: 320)
+        .padding(20)
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
@@ -324,6 +424,21 @@ struct LoadingRing: View {
                     rotation = 360
                 }
             }
+    }
+}
+
+struct StatusTag: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
 
