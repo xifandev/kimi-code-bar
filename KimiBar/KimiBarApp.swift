@@ -209,7 +209,10 @@ struct KimiMenu: View {
         VStack(spacing: 14) {
             // Header
             HStack(spacing: 12) {
-                AnimatedKimiCodeLogo(width: 44)
+                Image("kimi-logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 40, height: 40)
 
                 Text("KimiCode Bar")
                     .font(.system(size: 18, weight: .bold))
@@ -218,22 +221,22 @@ struct KimiMenu: View {
                 Spacer()
 
                 Button(action: { NSWorkspace.shared.open(githubURL) }) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image("github-icon")
                             .renderingMode(.template)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 12, height: 12)
+                            .frame(width: 16, height: 16)
 
                         Text("社区版")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                     }
-                    .foregroundStyle(.kimiTextSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .foregroundStyle(.kimiTextPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.20), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -262,7 +265,13 @@ struct KimiMenu: View {
             }
 
             // 操作按钮卡片
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                ActionButton(
+                    title: "控制台",
+                    icon: "terminal",
+                    action: { NSWorkspace.shared.open(consoleURL) }
+                )
+
                 ActionButton(
                     title: "刷新",
                     icon: "arrow.clockwise",
@@ -282,16 +291,6 @@ struct KimiMenu: View {
                     action: { NSApplication.shared.terminate(nil) }
                 )
             }
-
-            // 快捷链接卡片
-            HStack(alignment: .center) {
-                LinkRow(title: "KimiCode 控制台", icon: "link", url: consoleURL)
-
-                Spacer()
-            }
-            .padding(14)
-            .background(Color.kimiCardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
 
             // 版本卡片
             HStack(alignment: .center, spacing: 12) {
@@ -708,7 +707,7 @@ func parseChineseChangelog(_ text: String) -> (version: String, notes: String)? 
         if trimmed.hasPrefix("## ") {
             continue // 跳过版本标题
         } else if trimmed.hasPrefix("### ") {
-            formatted.append(trimmed) // 保留分类标题：### 修复 / ### 优化
+            continue // 跳过分类大标题
         } else if trimmed.hasPrefix("* ") {
             formatted.append("• " + String(trimmed.dropFirst(2)))
         } else {
