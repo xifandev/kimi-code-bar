@@ -1,19 +1,37 @@
-# KimiCodeBar
+<div align="center">
+  <img src="Assets/logo.gif" width="112" alt="KimiCodeBar Logo">
+  <h1>KimiCodeBar</h1>
+  <p>
+    <img src="https://img.shields.io/badge/Community-非官方-orange" alt="Community">
+    <a href="https://www.apple.com/macos"><img src="https://img.shields.io/badge/macOS-26+-333333?logo=apple&logoColor=white" alt="macOS"></a>
+    <a href="https://github.com/xifandev/KimiCodeBar/releases"><img src="https://img.shields.io/badge/version-0.0.0-333333" alt="Version"></a>
+    <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white" alt="Swift"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/xifandev/KimiCodeBar" alt="License"></a>
+  </p>
+</div>
 
-一个简洁的 macOS 菜单栏小工具，实时显示 [Kimi Code](https://www.kimi.com/code) 的额度使用情况。
+**KimiCodeBar** 是为 [Kimi Code](https://www.kimi.com/code) 打造的用量实时监控小工具，采用HTTP协议查询，在菜单中极简轻量化运行。
 
-## 运行效果（macOS）
+
+## 运行效果
 
 ![菜单栏显示](Screenshots/menu-bar.png)
 
 ![展开面板](Screenshots/panel.png)
 
-## 安装
+## 特性
 
-### 直接运行（推荐）
+- **用量监控** — 菜单栏直观显示当前用量等信息
+- **新版本提醒** — 检测新版本并提示更新
+- **极简轻量化** — 采用HTTP协议轮询，无任何运行负载
+- **隐私安全** — Key设备本地存储，不上传云端，代码全部开源
+
+## 安装使用
+
+### 直接下载（推荐）
 
 1. 下载 Releases 中的最新版本（暂未发布，可自行编译）
-2. 将 `KimiCodeBar.app` 拖入「应用程序」文件夹
+2. 双击 `KimiCodeBar.app` 即可运行
 
 ### 自行编译
 
@@ -25,57 +43,11 @@ open KimiCodeBar.xcodeproj
 
 使用 Xcode 选择你的 Mac，点击 Run 即可。
 
-## 使用
-
-1. 点击菜单栏中的 KimiCodeBar 图标
-2. 在「API Key」输入框中填入你的 Kimi Code API Key
-3. 点击「保存」或「立即刷新」
-
-> API Key 可在 [KimiCode 控制台](https://www.kimi.com/code/console) 获取。
-
-## 接口说明
-
-如果你想参考接口自己实现一个类似工具，核心请求如下：
-
-```http
-GET https://api.kimi.com/coding/v1/usages
-Authorization: Bearer <你的 API Key>
-```
-
-返回示例（节选）：
-
-```json
-{
-  "usage": {
-    "limit": "1000000",
-    "used": "12345",
-    "remaining": "987655",
-    "resetTime": "2026-07-18T00:00:00.000Z"
-  },
-  "limits": [
-    {
-      "window": { "duration": 300 },
-      "detail": {
-        "limit": "100000",
-        "used": "5000",
-        "remaining": "95000",
-        "resetTime": "2026-07-11T16:00:00.000Z"
-      }
-    }
-  ]
-}
-```
-
-说明：
-
-- `usage` 表示本周（7 天）总用量
-- `limits` 数组中包含多个时间窗口的限额，`duration: 300` 表示 5 小时窗口（300 秒）
-- 所有数值字段目前为字符串类型，使用时建议先做数值转换
 
 ## 隐私说明
 
-- API Key 仅保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.kimicodebar.app.plist`）中
-- 不会上传到任何第三方服务器
+- API Key 保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.kimicodebar.app.plist`）中
+- 不上传到任何第三方服务器
 - 所有网络请求均直接发往 Kimi 官方 API（`api.kimi.com`）
 
 ## 技术栈

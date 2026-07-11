@@ -1,8 +1,13 @@
 import SwiftUI
 import AppKit
+import UserNotifications
 
 @main
 struct KimiBarApp: App {
+    init() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
     var body: some Scene {
         MenuBarExtra {
             KimiMenu()
@@ -182,28 +187,9 @@ struct KimiMenu: View {
     @StateObject private var model = KimiBarModel.shared
     @State private var showSettings = false
     @State private var showUpdateAlert = false
-    @State private var kimiVersion = "检测中…"
-    @State private var availableVersion = ""
-    @State private var releaseNotes = ""
-    @State private var updateStatus: UpdateStatus = .checking
-
-    // MARK: 临时调试开关
-    // 强制显示“有新版本”状态（用假数据测试 UI）
-    private let debugForceUpdateAvailable = false
-    // 测试时把本机版本号最后一个数字减 1，确保 GitHub 检查一定能发现新版
-    private let debugPretendOlderVersion = true
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
     private let githubURL = URL(string: "https://github.com/xifandev/KimiCodeBar")!
-
-    enum UpdateStatus: Equatable {
-        case checking
-        case upToDate
-        case updateAvailable
-        case updating
-        case notInstalled
-        case error(String)
-    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -276,19 +262,19 @@ struct KimiMenu: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.kimiTextTertiary)
 
-                    Text(formatKimiVersion(kimiVersion))
+                    Text(formatKimiVersion(model.kimiVersion))
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(.kimiTextSecondary)
                 }
 
                 Spacer()
 
-                if updateStatus == .checking || updateStatus == .updating {
+                if model.isCheckingUpdate {
                     ProgressView()
                         .controlSize(.small)
                         .scaleEffect(0.7)
                 } else {
-                    Button(action: checkKimiCLI) {
+                    Button(action: { Task { await model.checkForKimiCLIUpdate() } }) {
                         Text("检查更新")
                             .font(.system(size: 12, weight: .medium))
                     }
@@ -309,151 +295,47 @@ struct KimiMenu: View {
         }
         .popover(isPresented: $showUpdateAlert, arrowEdge: .bottom) {
             UpdateAlertView(
-                currentVersion: formatKimiVersion(kimiVersion),
-                newVersion: availableVersion.isEmpty ? "新版" : availableVersion,
-                releaseNotes: releaseNotes,
-                onDismiss: { showUpdateAlert = false },
+                currentVersion: formatKimiVersion(model.kimiVersion),
+                newVersion: model.pendingUpdateVersion ?? "新版",
+                releaseNotes: model.pendingReleaseNotes ?? "暂无详细更新说明。",
+                onDismiss: {
+                    showUpdateAlert = false
+                    model.pendingUpdateVersion = nil
+                },
                 onInstall: {
                     showUpdateAlert = false
+                    model.pendingUpdateVersion = nil
                     Task { await installKimiCLIUpdate() }
                 }
             )
         }
         .onAppear {
-            loadKimiVersion()
+            Task { await model.loadKimiVersion() }
             if model.key.isEmpty {
                 showSettings = true
-            }
-        }
-    }
-
-    private func loadKimiVersion() {
-        Task {
-            let version = await detectKimiCLIVersion()
-            await MainActor.run {
-                kimiVersion = version
-                updateStatus = version == "未检测到" ? .notInstalled : .upToDate
-            }
-        }
-    }
-
-    private func checkKimiCLI() {
-        guard updateStatus != .checking && updateStatus != .updating else { return }
-        Task {
-            await performKimiUpgradeCheck()
-        }
-    }
-
-    private func performKimiUpgradeCheck() async {
-        await MainActor.run { updateStatus = .updating }
-
-        // 临时调试：强制模拟检测到新版本
-        if debugForceUpdateAvailable {
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            await MainActor.run {
-                availableVersion = "0.99.0"
-                releaseNotes = "1. 修复了若干已知问题。\n2. 优化了性能。\n3. 新增实验性功能。"
-                updateStatus = .updateAvailable
+            } else if model.pendingUpdateVersion != nil {
                 showUpdateAlert = true
-            }
-            return
-        }
-
-        async let currentVersionTask = detectKimiCLIVersion()
-        async let changelogTask = fetchLatestChineseChangelog()
-
-        let current = await currentVersionTask
-        let changelog = await changelogTask
-
-        await MainActor.run {
-            kimiVersion = current
-
-            guard current != "未检测到" else {
-                updateStatus = .notInstalled
-                return
-            }
-
-            guard let changelog = changelog else {
-                updateStatus = .error("无法获取中文更新日志")
-                return
-            }
-
-            let latest = normalizeVersion(changelog.version)
-            let currentNormalized = debugPretendOlderVersion
-                ? versionBySubtractingOnePatch(current)
-                : normalizeVersion(current)
-
-            if compareVersions(currentNormalized, latest) == .orderedAscending {
-                availableVersion = latest
-                releaseNotes = changelog.notes
-                updateStatus = .updateAvailable
-                showUpdateAlert = true
-            } else {
-                updateStatus = .upToDate
             }
         }
     }
 
     private func installKimiCLIUpdate() async {
-        await MainActor.run { updateStatus = .updating }
-        let _ = await runKimiCommand(arguments: ["upgrade"])
-        let version = await detectKimiCLIVersion()
-        await MainActor.run {
-            kimiVersion = version
-            updateStatus = .upToDate
-        }
-    }
-
-    private func detectKimiCLIVersion() async -> String {
-        let result = await runKimiCommand(arguments: ["--version"])
-        let output = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-        return output.isEmpty || output.contains("No such file") ? "未检测到" : output
-    }
-
-    private func runKimiCommand(arguments: [String]) async -> (output: String, exitCode: Int32) {
-        return await Task.detached(priority: .utility) {
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            let candidates = [
-                "kimi",
-                "\(home)/.kimi-code/bin/kimi",
-                "\(home)/.kimi/bin/kimi",
-                "/usr/local/bin/kimi",
-                "/opt/homebrew/bin/kimi"
-            ]
-
-            for kimiPath in candidates {
-                let task = Process()
-                task.executableURL = URL(fileURLWithPath: "/bin/bash")
-                let argsString = arguments.map { "\($0)" }.joined(separator: " ")
-                task.arguments = ["-lc", "\(kimiPath) \(argsString)"]
-
-                let pipe = Pipe()
-                task.standardOutput = pipe
-                task.standardError = pipe
-
-                do {
-                    try task.run()
-                    task.waitUntilExit()
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                    let output = String(data: data, encoding: .utf8) ?? ""
-                    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                    if task.terminationStatus == 0 {
-                        return (trimmed, 0)
-                    }
-
-                    let lower = trimmed.lowercased()
-                    if lower.contains("no such file") || lower.contains("command not found") || lower.contains("permission denied") {
-                        continue
-                    }
-
-                    return (trimmed, task.terminationStatus)
-                } catch {
-                    continue
-                }
-            }
-            return ("", -1)
-        }.value
+        // 呼出 Terminal.app 并执行更新命令，让用户在可视化终端里看到进度
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = [
+            "-e",
+            """
+            tell application "Terminal"
+                activate
+                if not (exists window 1) then
+                    do script ""
+                end if
+                do script "kimi upgrade" in front window
+            end tell
+            """
+        ]
+        try? task.run()
     }
 
     private func formatKimiVersion(_ version: String) -> String {
@@ -879,6 +761,8 @@ struct SettingsView: View {
     @State private var isEditingKey = false
     @State private var isHoveredCloseButton = false
     @State private var isHoveredConsoleLink = false
+    @State private var quotaIntervalText = "1"
+    @State private var updateIntervalText = "10"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -958,6 +842,25 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 20)
 
+            // 刷新与检查设置
+            VStack(alignment: .leading, spacing: 16) {
+                IntervalSettingRow(
+                    title: "额度刷新间隔",
+                    subtitle: "最小 1 分钟",
+                    value: $quotaIntervalText,
+                    minValue: 1
+                )
+
+                IntervalSettingRow(
+                    title: "检查更新间隔",
+                    subtitle: "最小 10 分钟",
+                    value: $updateIntervalText,
+                    minValue: 10
+                )
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+
             // 底部分割线
             Divider()
                 .background(Color.white.opacity(0.10))
@@ -1012,7 +915,24 @@ struct SettingsView: View {
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
+            quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
+            updateIntervalText = intervalText(from: model.updateCheckInterval)
         }
+    }
+
+    private func intervalText(from value: Double) -> String {
+        let intValue = Int(value)
+        return intValue > 0 ? "\(intValue)" : "1"
+    }
+
+    private func commitIntervals() {
+        let quota = Int(quotaIntervalText) ?? 1
+        let update = Int(updateIntervalText) ?? 10
+        model.quotaRefreshInterval = Double(max(1, quota))
+        model.updateCheckInterval = Double(max(10, update))
+        quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
+        updateIntervalText = intervalText(from: model.updateCheckInterval)
+        model.restartTimers()
     }
 
     private func saveKey() {
@@ -1020,6 +940,7 @@ struct SettingsView: View {
         editingKey = trimmed
         model.key = trimmed
         isEditingKey = false
+        commitIntervals()
         model.refresh()
 
         // 稍等片刻：如果 API 返回正常（无错误），自动关闭设置气泡
@@ -1039,6 +960,45 @@ struct SettingsView: View {
 }
 
 // MARK: - 组件
+
+struct IntervalSettingRow: View {
+    let title: String
+    let subtitle: String
+    @Binding var value: String
+    let minValue: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.kimiTextPrimary)
+
+                Spacer()
+
+                Text(subtitle)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.kimiTextTertiary)
+            }
+
+            HStack(spacing: 8) {
+                TextField("分钟", text: $value)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    .onChange(of: value) { _, newValue in
+                        let filtered = newValue.filter { $0.isNumber }
+                        if filtered != newValue {
+                            value = filtered
+                        }
+                    }
+
+                Text("分钟")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.kimiTextSecondary)
+            }
+        }
+    }
+}
 
 struct StatusTag: View {
     let text: String
@@ -1138,20 +1098,56 @@ final class KimiBarModel: ObservableObject {
     static let shared = KimiBarModel()
 
     @AppStorage("kimiApiKey") var key = ""
+    @AppStorage("quotaRefreshInterval") var quotaRefreshInterval: Double = 1
+    @AppStorage("updateCheckInterval") var updateCheckInterval: Double = 10
+
     @Published var text = "-- · --"
     @Published var quota: KimiQuota?
     @Published var errorMessage: String?
     @Published var isLoading = false
 
+    @Published var kimiVersion: String = "检测中…"
+    @Published var isCheckingUpdate: Bool = false
+    @Published var pendingUpdateVersion: String?
+    @Published var pendingReleaseNotes: String?
+    @Published var updateErrorMessage: String?
+
+    // MARK: 临时调试开关
+    private let debugForceUpdateAvailable = false
+    private let debugPretendOlderVersion = false
+
     private let service = KimiQuotaService()
     private var timer: Timer?
+    private var updateTimer: Timer?
 
     init() {
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+        Task { await loadKimiVersion() }
+        startQuotaTimer()
+        startUpdateTimer()
+    }
+
+    func startQuotaTimer() {
+        timer?.invalidate()
+        let interval = max(1.0, quotaRefreshInterval) * 60
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             Task { @MainActor in self.refresh() }
         }
-        timer?.tolerance = 10
+        timer?.tolerance = interval * 0.1
+    }
+
+    func startUpdateTimer() {
+        updateTimer?.invalidate()
+        let interval = max(10.0, updateCheckInterval) * 60
+        updateTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
+            Task { @MainActor in await self.checkForKimiCLIUpdate() }
+        }
+        updateTimer?.tolerance = interval * 0.1
+    }
+
+    func restartTimers() {
+        startQuotaTimer()
+        startUpdateTimer()
     }
 
     func refresh() {
@@ -1190,6 +1186,134 @@ final class KimiBarModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func loadKimiVersion() async {
+        let version = await detectKimiCLIVersion()
+        await MainActor.run {
+            kimiVersion = version
+        }
+    }
+
+    func checkForKimiCLIUpdate() async {
+        guard !isCheckingUpdate else { return }
+        await MainActor.run {
+            isCheckingUpdate = true
+            updateErrorMessage = nil
+        }
+
+        // 临时调试：强制模拟检测到新版本
+        if debugForceUpdateAvailable {
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            await MainActor.run {
+                pendingUpdateVersion = "0.99.0"
+                pendingReleaseNotes = "1. 修复了若干已知问题。\n2. 优化了性能。\n3. 新增实验性功能。"
+                isCheckingUpdate = false
+                sendUpdateNotification(version: "0.99.0")
+            }
+            return
+        }
+
+        async let currentVersionTask = detectKimiCLIVersion()
+        async let changelogTask = fetchLatestChineseChangelog()
+
+        let current = await currentVersionTask
+        let changelog = await changelogTask
+
+        await MainActor.run {
+            kimiVersion = current
+            isCheckingUpdate = false
+
+            guard current != "未检测到" else {
+                updateErrorMessage = "未检测到 Kimi CLI"
+                return
+            }
+
+            guard let changelog = changelog else {
+                updateErrorMessage = "无法获取中文更新日志"
+                return
+            }
+
+            let latest = normalizeVersion(changelog.version)
+            let currentNormalized = debugPretendOlderVersion
+                ? versionBySubtractingOnePatch(current)
+                : normalizeVersion(current)
+
+            if compareVersions(currentNormalized, latest) == .orderedAscending {
+                // 避免重复通知：只有首次发现该版本时才发送通知
+                if pendingUpdateVersion != latest {
+                    pendingUpdateVersion = latest
+                    pendingReleaseNotes = changelog.notes
+                    sendUpdateNotification(version: latest)
+                }
+            }
+        }
+    }
+
+    private func sendUpdateNotification(version: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "KimiCode 有新版本"
+        content.body = "KimiCode \(version) 已发布，点击更新。"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "kimi-code-update-\(version)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func detectKimiCLIVersion() async -> String {
+        let result = await runKimiCommand(arguments: ["--version"])
+        let output = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return output.isEmpty || output.contains("No such file") ? "未检测到" : output
+    }
+
+    private func runKimiCommand(arguments: [String]) async -> (output: String, exitCode: Int32) {
+        return await Task.detached(priority: .utility) {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            let candidates = [
+                "kimi",
+                "\(home)/.kimi-code/bin/kimi",
+                "\(home)/.kimi/bin/kimi",
+                "/usr/local/bin/kimi",
+                "/opt/homebrew/bin/kimi"
+            ]
+
+            for kimiPath in candidates {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/bin/bash")
+                let argsString = arguments.map { "\($0)" }.joined(separator: " ")
+                task.arguments = ["-lc", "\(kimiPath) \(argsString)"]
+
+                let pipe = Pipe()
+                task.standardOutput = pipe
+                task.standardError = pipe
+
+                do {
+                    try task.run()
+                    task.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data, encoding: .utf8) ?? ""
+                    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if task.terminationStatus == 0 {
+                        return (trimmed, 0)
+                    }
+
+                    let lower = trimmed.lowercased()
+                    if lower.contains("no such file") || lower.contains("command not found") || lower.contains("permission denied") {
+                        continue
+                    }
+
+                    return (trimmed, task.terminationStatus)
+                } catch {
+                    continue
+                }
+            }
+            return ("", -1)
+        }.value
     }
 
     private func errorDescription(_ error: QuotaError) -> String {
