@@ -66,86 +66,270 @@ enum MenuBarTextRenderer {
 struct KimiMenu: View {
     @StateObject private var model = KimiBarModel.shared
     @State private var editingKey = ""
+    @State private var isEditingKey = false
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
+    private let githubURL = URL(string: "https://github.com/xifandev/KimiBar")!
 
     var body: some View {
         VStack(spacing: 0) {
             // 统计区域
             if let quota = model.quota {
-                QuotaDashboard(quota: quota)
+                QuotaDashboard(quota: quota, isLoading: model.isLoading)
                     .padding(.top, 20)
             } else {
-                Text(model.text)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                    .padding(.top, 20)
+                VStack(spacing: 6) {
+                    if model.isLoading {
+                        LoadingRing()
+                            .padding(.bottom, 4)
+                    }
+                    Text(model.text)
+                        .font(.system(size: 22, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .padding(.top, 20)
             }
 
             Divider()
                 .padding(.vertical, 16)
 
-            // API Key 编辑行
-            HStack(spacing: 12) {
+            // API Key 区域
+            VStack(alignment: .leading, spacing: 8) {
                 Text("API Key")
-                    .font(.system(size: 13))
-                    .frame(width: 60, alignment: .leading)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-                SecureField("输入 API Key", text: $editingKey)
-                    .textFieldStyle(.roundedBorder)
+                if isEditingKey || model.key.isEmpty {
+                    HStack(spacing: 10) {
+                        SecureField("sk-kimi-...", text: $editingKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: .infinity)
+                            .onChange(of: editingKey) { newValue in
+                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmed != newValue {
+                                    editingKey = trimmed
+                                }
+                            }
+
+                        Button(action: saveKey) {
+                            Text("保存")
+                                .font(.system(size: 13))
+                        }
+                        .disabled(editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .cursor(.pointingHand)
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        Text(maskedKey(model.key))
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Color.secondary.opacity(0.85))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.secondary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Button(action: {
+                            editingKey = model.key
+                            isEditingKey = true
+                        }) {
+                            Text("修改")
+                                .font(.system(size: 13))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .cursor(.pointingHand)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+
+                if let error = model.errorMessage {
+                    ErrorMessageView(message: error)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 控制台快捷方式
-            Button {
-                NSWorkspace.shared.open(consoleURL)
-            } label: {
-                Text("KimiCode控制台")
-                    .font(.caption)
-            }
-            .buttonStyle(.link)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 10)
+            Spacer(minLength: 12)
 
-            Spacer(minLength: 16)
+            // 底部快捷方式和操作
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ShortcutLink(
+                        title: "KimiCode 控制台",
+                        icon: "link",
+                        url: consoleURL
+                    )
 
-            // 底部操作区
-            HStack(spacing: 12) {
-                Button("保存") {
-                    model.key = editingKey
+                    ShortcutLink(
+                        title: "GitHub",
+                        icon: "github-icon",
+                        url: githubURL,
+                        isCustomIcon: true
+                    )
                 }
-                .disabled(editingKey.isEmpty)
-
-                Button("刷新") {
-                    model.refresh()
-                }
-                .disabled(model.key.isEmpty)
-
-                Button("立即刷新") {
-                    model.key = editingKey
-                    model.refresh()
-                }
-                .disabled(editingKey.isEmpty)
 
                 Spacer()
 
-                Button("退出") {
-                    NSApplication.shared.terminate(nil)
+                HStack(spacing: 10) {
+                    Button(action: { model.refresh() }) {
+                        Text("刷新")
+                            .font(.system(size: 13))
+                    }
+                    .disabled(model.key.isEmpty || model.isLoading)
+                    .controlSize(.small)
+                    .cursor(.pointingHand)
+
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        Text("退出")
+                            .font(.system(size: 13))
+                    }
+                    .controlSize(.small)
+                    .cursor(.pointingHand)
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, 14)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 18)
         .frame(width: 340)
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             editingKey = model.key
+            isEditingKey = model.key.isEmpty
         }
+    }
+
+    private func saveKey() {
+        let trimmed = editingKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        editingKey = trimmed
+        model.key = trimmed
+        isEditingKey = false
+        model.refresh()
+    }
+
+    private func maskedKey(_ key: String) -> String {
+        guard key.count > 8 else { return key }
+        let prefix = String(key.prefix(7))
+        let suffix = String(key.suffix(5))
+        return "\(prefix)...\(suffix)"
+    }
+}
+
+struct ShortcutLink: View {
+    let title: String
+    let icon: String
+    let url: URL
+    var isCustomIcon: Bool = false
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: 5) {
+                if isCustomIcon {
+                    Image(icon)
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                }
+                Text(title)
+                    .font(.system(size: 13))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.accent)
+        .cursor(.pointingHand)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+}
+
+extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        self.onHover { hovering in
+            if hovering {
+                cursor.set()
+            } else {
+                NSCursor.arrow.set()
+            }
+        }
+    }
+}
+
+struct ErrorMessageView: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.system(size: 12))
+                .padding(.top, 2)
+
+            Text(message)
+                .font(.system(size: 11))
+                .foregroundStyle(.orange.opacity(0.9))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 4)
+
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(message, forType: .string)
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("复制错误信息")
+            .padding(.top, 2)
+        }
+        .padding(8)
+        .background(Color.orange.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct LoadingRing: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: 0.75)
+            .stroke(
+                style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+            )
+            .foregroundStyle(.white.opacity(0.7))
+            .rotationEffect(.degrees(rotation))
+            .onAppear {
+                withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
     }
 }
 
 struct QuotaDashboard: View {
     let quota: KimiQuota
+    let isLoading: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -153,7 +337,8 @@ struct QuotaDashboard: View {
                 title: "本周用量",
                 value: quota.weekly.percentage,
                 reset: quota.weekly.timeUntilReset,
-                color: .blue
+                color: .blue,
+                isLoading: isLoading
             )
 
             Divider()
@@ -164,7 +349,8 @@ struct QuotaDashboard: View {
                 title: "5小时用量",
                 value: quota.fiveHour.percentage,
                 reset: quota.fiveHour.timeUntilReset,
-                color: .orange
+                color: .orange,
+                isLoading: isLoading
             )
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -176,16 +362,30 @@ struct StatColumn: View {
     let value: Int
     let reset: String
     let color: Color
+    let isLoading: Bool
 
     var body: some View {
         VStack(spacing: 8) {
             Text(title)
-                .font(.caption)
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            Text("\(value)%")
-                .font(.system(size: 34, weight: .medium, design: .rounded))
-                .monospacedDigit()
+            ZStack {
+                if !isLoading {
+                    Text("\(value)%")
+                        .font(.system(size: 34, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                }
+
+                if isLoading {
+                    LoadingRing()
+                        .frame(width: 26, height: 26)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                }
+            }
+            .frame(width: 80, height: 44)
+            .animation(.easeInOut(duration: 0.2), value: isLoading)
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
@@ -201,7 +401,7 @@ struct StatColumn: View {
             .frame(width: 72, height: 3)
 
             Text(reset)
-                .font(.caption2)
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -216,6 +416,8 @@ final class KimiBarModel: ObservableObject {
     @AppStorage("kimiApiKey") var key = ""
     @Published var text = "-- · --"
     @Published var quota: KimiQuota?
+    @Published var errorMessage: String?
+    @Published var isLoading = false
 
     private let service = KimiQuotaService()
     private var timer: Timer?
@@ -225,22 +427,60 @@ final class KimiBarModel: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in self.refresh() }
         }
+        timer?.tolerance = 10
     }
 
     func refresh() {
         guard !key.isEmpty else {
             text = "未配置"
             quota = nil
+            errorMessage = nil
             return
         }
+
+        isLoading = true
+        errorMessage = nil
+        let startTime = Date()
+
         Task {
-            if let quota = await service.fetchQuota(key: key) {
-                self.quota = quota
-                self.text = "周 \(quota.weekly.percentage)% · 5h \(quota.fiveHour.percentage)%"
-            } else {
-                self.text = "--"
-                self.quota = nil
+            let result = await service.fetchQuota(key: key)
+
+            // 保证至少转 0.5 秒，体验更优雅
+            let elapsed = Date().timeIntervalSince(startTime)
+            let remaining = max(0, 0.5 - elapsed)
+            if remaining > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
             }
+
+            await MainActor.run {
+                self.isLoading = false
+                switch result {
+                case .success(let quota):
+                    self.quota = quota
+                    self.text = "周 \(quota.weekly.percentage)% · 5h \(quota.fiveHour.percentage)%"
+                    self.errorMessage = nil
+                case .failure(let error):
+                    if self.quota == nil {
+                        self.text = "--"
+                    }
+                    self.errorMessage = errorDescription(error)
+                }
+            }
+        }
+    }
+
+    private func errorDescription(_ error: QuotaError) -> String {
+        switch error {
+        case .invalidKeyFormat:
+            return "API Key 格式错误，应以 sk-kimi- 开头"
+        case .invalidURL:
+            return "请求地址无效"
+        case .networkError(let msg):
+            return "网络错误：\(msg)"
+        case .httpError(let code, let msg):
+            return "Kimi API 返回错误（\(code)）：\(msg)"
+        case .invalidResponse:
+            return "无法解析 API 返回数据"
         }
     }
 }

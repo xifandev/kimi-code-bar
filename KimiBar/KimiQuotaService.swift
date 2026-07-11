@@ -1,5 +1,13 @@
 import Foundation
 
+enum QuotaError: Error, Equatable {
+    case invalidKeyFormat
+    case invalidURL
+    case networkError(String)
+    case httpError(statusCode: Int, message: String)
+    case invalidResponse
+}
+
 struct QuotaDetail: Equatable {
     let used: Int
     let limit: Int
@@ -20,9 +28,13 @@ final class KimiQuotaService {
         return f
     }()
 
-    func fetchQuota(key: String) async -> KimiQuota? {
+    func fetchQuota(key: String) async -> Result<KimiQuota, QuotaError> {
+        guard key.hasPrefix("sk-kimi-") else {
+            return .failure(.invalidKeyFormat)
+        }
+
         guard let url = URL(string: "https://api.kimi.com/coding/v1/usages") else {
-            return nil
+            return .failure(.invalidURL)
         }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
@@ -30,20 +42,45 @@ final class KimiQuotaService {
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                return nil
+            guard let http = response as? HTTPURLResponse else {
+                return .failure(.invalidResponse)
             }
-            return parse(data)
+
+            if http.statusCode != 200 {
+                let message = Self.extractErrorMessage(from: data) ?? "HTTP \(http.statusCode)"
+                return .failure(.httpError(statusCode: http.statusCode, message: message))
+            }
+
+            guard let quota = parse(data) else {
+                return .failure(.invalidResponse)
+            }
+            return .success(quota)
         } catch {
-            return nil
+            return .failure(.networkError(error.localizedDescription))
         }
     }
 
     func fetchDisplayText(key: String) async -> String {
-        guard let quota = await fetchQuota(key: key) else {
+        let result = await fetchQuota(key: key)
+        switch result {
+        case .success(let quota):
+            return "周\(quota.weekly.percentage)% 5h \(quota.fiveHour.percentage)%"
+        case .failure:
             return "--"
         }
-        return "周\(quota.weekly.percentage)% 5h \(quota.fiveHour.percentage)%"
+    }
+
+    static func extractErrorMessage(from data: Data) -> String? {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let msg = json["error"] as? String { return msg }
+            if let msg = json["message"] as? String { return msg }
+            if let detail = json["detail"] as? String { return detail }
+            if let err = json["error"] as? [String: Any], let msg = err["message"] as? String { return msg }
+        }
+        if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+            return text
+        }
+        return nil
     }
 
     private func parse(_ data: Data) -> KimiQuota? {
