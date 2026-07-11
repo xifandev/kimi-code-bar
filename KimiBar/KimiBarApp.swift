@@ -194,7 +194,7 @@ struct KimiMenu: View {
     private let debugPretendOlderVersion = true
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
-    private let githubURL = URL(string: "https://github.com/xifandev/kimi-code-bar")!
+    private let githubURL = URL(string: "https://github.com/xifandev/KimiCodeBar")!
 
     enum UpdateStatus: Equatable {
         case checking
@@ -211,7 +211,7 @@ struct KimiMenu: View {
             HStack(spacing: 12) {
                 AnimatedKimiCodeLogo(width: 44)
 
-                Text("KimiCode Bar")
+                Text("KimiCodeBar")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.kimiTextPrimary)
 
@@ -664,7 +664,7 @@ struct CommunityButton: View {
 func fetchLatestChineseChangelog() async -> (version: String, notes: String)? {
     let url = URL(string: "https://moonshotai.github.io/kimi-code/zh/release-notes/changelog.md")!
     var request = URLRequest(url: url)
-    request.setValue("KimiBar/1.0", forHTTPHeaderField: "User-Agent")
+    request.setValue("KimiCodeBar/1.0", forHTTPHeaderField: "User-Agent")
     request.timeoutInterval = 20
 
     do {

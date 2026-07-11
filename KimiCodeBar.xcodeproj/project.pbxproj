@@ -7,14 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BEB69A256FDB4EEE851CAF6D /* KimiBar.app in Products */ = {isa = PBXBuildFile; fileRef = D44CECE74D174CC298CE6FE7; };
+		BEB69A256FDB4EEE851CAF6D /* KimiCodeBar.app in Products */ = {isa = PBXBuildFile; fileRef = D44CECE74D174CC298CE6FE7; };
 		0C489D06D649421680AD66D7 /* KimiBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF9AB1130A844A89CE0075C; };
 		FFAC0CE5E70E4F17AAD3B902 /* KimiQuotaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02F47923DD8C405BB3237AE1; };
 		2ACCAAC36EA5468998428B73 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 510792D7AE86479585E4504C; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		D44CECE74D174CC298CE6FE7 /* KimiBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KimiBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D44CECE74D174CC298CE6FE7 /* KimiCodeBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KimiCodeBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2EF9AB1130A844A89CE0075C /* KimiBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KimiBarApp.swift; sourceTree = "<group>"; };
 		02F47923DD8C405BB3237AE1 /* KimiQuotaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KimiQuotaService.swift; sourceTree = "<group>"; };
 		510792D7AE86479585E4504C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -44,7 +44,7 @@
 		6456A76DE5E141ED86925025 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D44CECE74D174CC298CE6FE7 /* KimiBar.app */,
+				D44CECE74D174CC298CE6FE7 /* KimiCodeBar.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,9 +64,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F29D4863FB954CEFB39AB0F9 /* KimiBar */ = {
+		F29D4863FB954CEFB39AB0F9 /* KimiCodeBar */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AC7D9800D5E645389FC3B470 /* Build configuration list for PBXNativeTarget "KimiBar" */;
+			buildConfigurationList = AC7D9800D5E645389FC3B470 /* Build configuration list for PBXNativeTarget "KimiCodeBar" */;
 			buildPhases = (
 				82DBB4C700EC41478580F591 /* Sources */,
 				4988CB45C5AA4BAB847B68FA /* Frameworks */,
@@ -76,9 +76,9 @@
 			);
 			dependencies = (
 			);
-			name = KimiBar;
-			productName = KimiBar;
-			productReference = D44CECE74D174CC298CE6FE7 /* KimiBar.app */;
+			name = KimiCodeBar;
+			productName = KimiCodeBar;
+			productReference = D44CECE74D174CC298CE6FE7 /* KimiCodeBar.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -110,7 +110,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F29D4863FB954CEFB39AB0F9 /* KimiBar */,
+				F29D4863FB954CEFB39AB0F9 /* KimiCodeBar */,
 			);
 		};
 /* End PBXProject section */
@@ -230,7 +230,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kimibar.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kimicodebar.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -259,7 +259,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kimibar.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kimicodebar.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -269,7 +269,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		D40F24D8F5FB4F7683A3287B /* Build configuration list for PBXProject "KimiBar" */ = {
+		D40F24D8F5FB4F7683A3287B /* Build configuration list for PBXProject "KimiCodeBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F1F285C372544E229FABB4D2 /* Debug */,
@@ -278,7 +278,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC7D9800D5E645389FC3B470 /* Build configuration list for PBXNativeTarget "KimiBar" */ = {
+		AC7D9800D5E645389FC3B470 /* Build configuration list for PBXNativeTarget "KimiCodeBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A3AD12A0E261486EA1E61006 /* Debug */,

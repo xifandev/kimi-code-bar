@@ -13,21 +13,21 @@
 ### 直接运行（推荐）
 
 1. 下载 Releases 中的最新版本（暂未发布，可自行编译）
-2. 将 `KimiBar.app` 拖入「应用程序」文件夹
+2. 将 `KimiCodeBar.app` 拖入「应用程序」文件夹
 
 ### 自行编译
 
 ```bash
-git clone https://github.com/xifandev/KimiBar.git
-cd KimiBar
-open KimiBar.xcodeproj
+git clone https://github.com/xifandev/KimiCodeBar.git
+cd KimiCodeBar
+open KimiCodeBar.xcodeproj
 ```
 
 使用 Xcode 选择你的 Mac，点击 Run 即可。
 
 ## 使用
 
-1. 点击菜单栏中的 KimiBar 图标
+1. 点击菜单栏中的 KimiCodeBar 图标
 2. 在「API Key」输入框中填入你的 Kimi Code API Key
 3. 点击「保存」或「立即刷新」
 
@@ -74,7 +74,7 @@ Authorization: Bearer <你的 API Key>
 
 ## 隐私说明
 
-- API Key 仅保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.kimibar.app.plist`）中
+- API Key 仅保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.kimicodebar.app.plist`）中
 - 不会上传到任何第三方服务器
 - 所有网络请求均直接发往 Kimi 官方 API（`api.kimi.com`）
 

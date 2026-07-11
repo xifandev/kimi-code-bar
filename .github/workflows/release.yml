@@ -15,11 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build KimiBar
+      - name: Build KimiCodeBar
         run: |
           xcodebuild \
-            -project KimiBar.xcodeproj \
-            -target KimiBar \
+            -project KimiCodeBar.xcodeproj \
+            -target KimiCodeBar \
             -configuration Release \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \
@@ -28,12 +28,12 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist
-          cp -R build/Release/KimiBar.app dist/
+          cp -R build/Release/KimiCodeBar.app dist/
           cd dist
-          zip -r "KimiBar-${{ github.ref_name }}.zip" KimiBar.app
+          zip -r "KimiCodeBar-${{ github.ref_name }}.zip" KimiCodeBar.app
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/KimiBar-${{ github.ref_name }}.zip
+          files: dist/KimiCodeBar-${{ github.ref_name }}.zip
           generate_release_notes: true
