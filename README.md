@@ -9,6 +9,12 @@
 - 支持手动刷新和自动刷新（每分钟）
 - 只需填入 Kimi Code API Key 即可使用
 
+## 截图
+
+![菜单栏显示](Screenshots/menu-bar.png)
+
+![展开面板](Screenshots/panel.png)
+
 ## 安装
 
 ### 直接运行（推荐）
@@ -76,11 +82,9 @@ Authorization: Bearer <你的 API Key>
 
 ## 隐私说明
 
-- API Key 仅保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.getlong.KimiBar.plist`）中
+- API Key 仅保存在本地设备的 `NSUserDefaults`（`~/Library/Preferences/com.kimibar.app.plist`）中
 - 不会上传到任何第三方服务器
 - 所有网络请求均直接发往 Kimi 官方 API（`api.kimi.com`）
-
-> 后续版本可能会将 API Key 迁移到 macOS Keychain，以进一步提升安全性。
 
 ## 技术栈
 
