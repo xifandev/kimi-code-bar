@@ -12,12 +12,18 @@
 **KimiCodeBar** 是为 [Kimi Code](https://www.kimi.com/code) 打造的用量实时监控小工具，采用HTTP协议查询，在菜单中极简轻量化运行。
 
 
-## 运行展示
+## 菜单面板
 
 <p align="center">
   <img src="Assets/panel.gif" width="400" height="430" alt="暗夜模式">
   <img src="Assets/panel2.png" width="400" height="430" alt="浅色模式">
 </p>
+
+## KimiCode 更新提醒
+<p align="center">
+  <img src="Assets/newtip.png" width="400"  alt="更新提醒">
+</p>
+
 
 ## 功能特性
 
