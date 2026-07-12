@@ -26,22 +26,29 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .light: return .light
         }
     }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .dark: return NSAppearance(named: .darkAqua)
+        case .light: return NSAppearance(named: .aqua)
+        }
+    }
 }
 
 @MainActor
 final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
-    @AppStorage("appTheme") private var storedTheme: AppTheme = .system
 
-    var theme: AppTheme {
-        get { storedTheme }
-        set {
-            storedTheme = newValue
-            // 延迟发布，避免在 view update 期间触发 SwiftUI 警告
-            DispatchQueue.main.async {
-                self.objectWillChange.send()
-            }
+    @Published var theme: AppTheme {
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: "appTheme")
         }
+    }
+
+    private init() {
+        let rawValue = UserDefaults.standard.string(forKey: "appTheme") ?? ""
+        theme = AppTheme(rawValue: rawValue) ?? .system
     }
 }
 
@@ -51,12 +58,15 @@ struct KimiCodeBarApp: App {
 
     init() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        NSApplication.shared.appearance = ThemeManager.shared.theme.nsAppearance
     }
 
     var body: some Scene {
         MenuBarExtra {
             KimiMenu()
-                .preferredColorScheme(themeManager.theme.colorScheme)
+                .onChange(of: themeManager.theme) { _, newTheme in
+                    NSApplication.shared.appearance = newTheme.nsAppearance
+                }
         } label: {
             KimiLabel()
         }
@@ -933,6 +943,12 @@ struct UpdateAlertView: View {
 
 // MARK: - 设置弹窗
 
+enum SettingField: Hashable {
+    case apiKey
+    case quotaInterval
+    case updateInterval
+}
+
 struct SettingsView: View {
     @StateObject private var model = KimiCodeBarModel.shared
     @StateObject private var themeManager = ThemeManager.shared
@@ -944,12 +960,13 @@ struct SettingsView: View {
     @State private var isHoveredConsoleLink = false
     @State private var quotaIntervalText = "5"
     @State private var updateIntervalText = "30"
+    @FocusState private var focusedField: SettingField?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 顶部标题
             HStack(spacing: 12) {
-                Text("请先配置 KimiCode API Key")
+                Text("设置")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.kimiTextPrimary)
 
@@ -976,24 +993,46 @@ struct SettingsView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
 
-            // API Key 区域
+            // KMK 配置
             VStack(alignment: .leading, spacing: 12) {
-                Text("API Key")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.kimiTextSecondary)
+                HStack(spacing: 8) {
+                    Text("API Key")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.kimiTextSecondary)
 
-                if isEditingKey || model.key.isEmpty {
-                    SecureField("sk-kimi-...", text: $editingKey)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: .infinity)
-                        .onChange(of: editingKey) { _, newValue in
-                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmed != newValue {
-                                editingKey = trimmed
-                            }
+                    Spacer()
+
+                    Button(action: { NSWorkspace.shared.open(URL(string: "https://www.kimi.com/code/console")!) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 10))
+                            Text("去控制台获取")
+                                .font(.system(size: 12, weight: .medium))
                         }
-                } else {
-                    HStack(spacing: 10) {
+                        .foregroundStyle(isHoveredConsoleLink ? .kimiTextPrimary : .kimiTextSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(isHoveredConsoleLink ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .cursor(.pointingHand)
+                    .onHover { isHoveredConsoleLink = $0 }
+                }
+
+                HStack(spacing: 10) {
+                    if isEditingKey {
+                        SecureField("sk-kimi-...", text: $editingKey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: .infinity)
+                            .focused($focusedField, equals: .apiKey)
+                            .onChange(of: editingKey) { _, newValue in
+                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmed != newValue {
+                                    editingKey = trimmed
+                                }
+                            }
+                    } else {
                         Text(maskedKey(model.key))
                             .font(.system(size: 13, weight: .medium, design: .monospaced))
                             .foregroundStyle(.kimiTextSecondary)
@@ -1002,23 +1041,32 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.kimiTextPrimary.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
 
-                        Button(action: {
+                    Button(action: {
+                        if isEditingKey {
+                            saveKey()
+                        } else {
                             editingKey = model.key
                             isEditingKey = true
-                        }) {
-                            Text("修改")
+                            focusedField = .apiKey
                         }
-                        .buttonStyle(KimiButtonStyle(isProminent: false))
-                        .cursor(.pointingHand)
+                    }) {
+                        Text(isEditingKey ? "保存" : "修改")
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(KimiButtonStyle(isProminent: false))
+                    .disabled(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .cursor(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
                 }
+                .frame(maxWidth: .infinity)
 
                 if let error = model.errorMessage {
                     ErrorMessageView(message: error)
                 }
             }
+            .padding(14)
+            .background(Color.kimiTextPrimary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 20)
 
             // 界面配色
@@ -1034,65 +1082,47 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            .padding(14)
+            .background(Color.kimiTextPrimary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 12)
 
             // 刷新与检查设置
             VStack(alignment: .leading, spacing: 12) {
+                Text("刷新与检查设置")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.kimiTextSecondary)
+
                 IntervalSettingRow(
                     title: "额度刷新间隔",
-                    value: $quotaIntervalText
+                    value: $quotaIntervalText,
+                    focusField: .quotaInterval,
+                    focusedField: $focusedField
                 )
 
                 IntervalSettingRow(
                     title: "检查更新间隔",
-                    value: $updateIntervalText
+                    value: $updateIntervalText,
+                    focusField: .updateInterval,
+                    focusedField: $focusedField
                 )
             }
+            .padding(14)
+            .background(Color.kimiTextPrimary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 20)
             .padding(.top, 12)
 
-            // 底部分割线
-            Divider()
-                .background(Color.kimiTextPrimary.opacity(0.10))
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-
             // 底部操作按钮
             HStack(spacing: 12) {
-                Button(action: { NSWorkspace.shared.open(URL(string: "https://www.kimi.com/code/console")!) }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 10))
-                        Text("去控制台获取")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundStyle(isHoveredConsoleLink ? .kimiTextPrimary : .kimiTextSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(isHoveredConsoleLink ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-                .cursor(.pointingHand)
-                .onHover { isHoveredConsoleLink = $0 }
-
                 Spacer()
 
-                if isEditingKey || model.key.isEmpty {
-                    Button(action: saveKey) {
-                        Text("保存")
-                    }
-                    .disabled(editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .buttonStyle(KimiButtonStyle(isProminent: true))
-                    .cursor(editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
-                } else {
-                    Button(action: { dismiss() }) {
-                        Text("完成")
-                    }
-                    .buttonStyle(KimiButtonStyle(isProminent: true))
-                    .cursor(.pointingHand)
+                Button(action: done) {
+                    Text("完成")
                 }
+                .buttonStyle(KimiButtonStyle(isProminent: true))
+                .cursor(.pointingHand)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -1111,6 +1141,11 @@ struct SettingsView: View {
             isEditingKey = model.key.isEmpty
             quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
             updateIntervalText = intervalText(from: model.updateCheckInterval)
+
+            // 避免设置气泡打开时自动聚焦到输入框
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                focusedField = nil
+            }
         }
     }
 
@@ -1145,6 +1180,11 @@ struct SettingsView: View {
         }
     }
 
+    private func done() {
+        commitIntervals()
+        dismiss()
+    }
+
     private func maskedKey(_ key: String) -> String {
         guard key.count > 8 else { return key }
         let prefix = String(key.prefix(7))
@@ -1158,6 +1198,8 @@ struct SettingsView: View {
 struct IntervalSettingRow: View {
     let title: String
     @Binding var value: String
+    let focusField: SettingField
+    @FocusState.Binding var focusedField: SettingField?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1171,6 +1213,7 @@ struct IntervalSettingRow: View {
                 TextField("分钟", text: $value)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
+                    .focused($focusedField, equals: focusField)
                     .onChange(of: value) { _, newValue in
                         let filtered = newValue.filter { $0.isNumber }
                         if filtered != newValue {
@@ -1183,10 +1226,7 @@ struct IntervalSettingRow: View {
                     .foregroundStyle(.kimiTextSecondary)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.kimiTextPrimary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 6)
     }
 }
 
