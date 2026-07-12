@@ -1,5 +1,5 @@
 <h1 style="border-bottom: none; margin: 0">
-  <img src="Assets/logo.gif" width="50" alt="KimiCodeBar Logo" style="vertical-align: middle; margin-right: 12px;">KimiCodeBar
+  <img src="Assets/logo.gif" width="50" alt="KimiCodeBar Logo" align="absmiddle">&nbsp;KimiCodeBar
 </h1>
 <p align="left">
   <a href="https://github.com/xifandev/KimiCodeBar/releases"><img src="https://img.shields.io/badge/version-1.0.1-333333" alt="Version"></a>
