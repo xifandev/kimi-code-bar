@@ -1049,6 +1049,7 @@ struct SettingsView: View {
                         } else {
                             editingKey = model.key
                             isEditingKey = true
+                            model.errorMessage = nil
                             focusedField = .apiKey
                         }
                     }) {
@@ -1166,6 +1167,10 @@ struct SettingsView: View {
 
     private func saveKey() {
         let trimmed = editingKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("sk-kimi-") else {
+            model.errorMessage = "API Key 格式错误，应以 sk-kimi- 开头"
+            return
+        }
         editingKey = trimmed
         model.key = trimmed
         isEditingKey = false
