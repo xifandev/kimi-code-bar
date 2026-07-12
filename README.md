@@ -1,7 +1,6 @@
-<div  style="display: flex; align-items: center; justify-content: left; gap: 12px;margin-bottom: 5px;">
-  <img src="Assets/logo.gif" width="50" alt="KimiCodeBar Logo">
-  <h1 style="margin: 0; border-bottom: none;margin-bottom: -5px; margin-left: 0px;">KimiCodeBar</h1>
-</div>
+<h1 style="border-bottom: none; margin: 0 0 5px 0;">
+  <img src="Assets/logo.gif" width="50" alt="KimiCodeBar Logo" style="vertical-align: middle; margin-right: 12px;">KimiCodeBar
+</h1>
 <p align="left">
   <a href="https://github.com/xifandev/KimiCodeBar/releases"><img src="https://img.shields.io/badge/version-1.0.1-333333" alt="Version"></a>
  <img src="https://img.shields.io/badge/macOS-333333?logo=apple&logoColor=white" alt="macOS">
