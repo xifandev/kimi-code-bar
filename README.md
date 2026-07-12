@@ -1,48 +1,60 @@
-<div align="center">
-  <img src="Assets/logo.gif" width="112" alt="KimiCodeBar Logo">
-  <h1>KimiCodeBar</h1>
-  <p>
-    <img src="https://img.shields.io/badge/-Kimi%E7%A4%BE%E5%8C%BA%E7%89%88-orange" alt="Kimi社区版">
-    <a href="https://www.apple.com/macos"><img src="https://img.shields.io/badge/macOS-333333?logo=apple&logoColor=white" alt="macOS"></a>
-    <a href="https://github.com/xifandev/KimiCodeBar/releases"><img src="https://img.shields.io/badge/version-1.0.1-333333" alt="Version"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/xifandev/KimiCodeBar" alt="License"></a>
-  </p>
+<div  style="display: flex; align-items: center; justify-content: left; gap: 12px;margin-bottom: 5px;">
+  <img src="Assets/logo.gif" width="50" alt="KimiCodeBar Logo">
+  <h1 style="margin: 0; border-bottom: none;margin-bottom: -5px; margin-left: 0px;">KimiCodeBar</h1>
 </div>
-
-**KimiCodeBar** 是为 [Kimi Code](https://www.kimi.com/code) 打造的用量实时监控小工具，采用HTTP协议查询，在菜单中极简轻量化运行。
-
-
-## 菜单面板
-
-<p align="center">
-  <img src="Assets/panel.gif" width="400" height="430" alt="暗夜模式">
-  <img src="Assets/panel2.png" width="400" height="430" alt="浅色模式">
+<p align="left">
+  <a href="https://github.com/xifandev/KimiCodeBar/releases"><img src="https://img.shields.io/badge/version-1.0.1-333333" alt="Version"></a>
+ <img src="https://img.shields.io/badge/macOS-333333?logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/-KIMI%E7%A4%BE%E5%8C%BA%E7%89%88-orange" alt="社区版">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/xifandev/KimiCodeBar" alt="License"></a>
 </p>
 
-## KimiCode 更新提醒
-<p align="center">
+专为 [Kimi Code](https://www.kimi.com/code) 打造的用量监控小工具，在菜单中轻量化运行，限额一目了然！
+
+#
+
+### 安装使用
+
+#### GitHub Releases：https://github.com/xifandev/KimiCodeBar/releases
+
+#
+
+### 👇 菜单栏实时监控
+
+<img src="Assets/menu-bar.png" width="400" alt="菜单栏用量速览">
+
+### ✨ 菜单栏弹出小面板
+
+<p align="left" style="display: flex; gap: 20px; ">
+  <img src="Assets/panel-01.png"   height="400" alt="暗夜模式">
+  <img src="Assets/panel-02.png"  height="400" alt="浅色模式">
+</p>
+
+### ✨ 自动探测 KimiCode 更新
+
   <img src="Assets/newtip.png" width="400"  alt="更新提醒">
-</p>
+ <img src="Assets/msg.png" width="400"  alt="更新提醒">
 
+#
 
-## 功能特性
+### 🔒 隐私安全
 
-- **用量监控** — 菜单栏直观显示当前用量等信息
-- **新版本提醒** — 检测新版本并提示更新
-- **极简轻量化** — 采用HTTP轮询，超级轻量运行
-- **隐私安全** — 数据本地存储，代码全部开源
+数据仅本地存储，API只与Kimi官方通信，代码全部开源。
 
-## 安装使用
+#
 
-### GitHub Releases
+### 🛠 系统适配
 
-Download: https://github.com/xifandev/KimiCodeBar/releases
-
-## 支持系统
-
-- MacOS
+- MacOS（已发布）
 - Windows（待开发）
 
-## 许可证
+#
 
-[MIT](LICENSE)
+### 欢迎提交 👉 <a href="https://github.com/xifandev/KimiCodeBar/issues">Issues</a> 反馈问题或建议
+
+#
+
+###
+
+  <img src="https://img.shields.io/badge/-KIMI%E7%A4%BE%E5%8C%BA%E7%89%88-orange" alt="社区版">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/xifandev/KimiCodeBar" alt="License"></a>
