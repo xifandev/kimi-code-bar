@@ -1,0 +1,30 @@
+name: ✨ 功能建议
+description: 想让 KimiCodeBar 增加什么功能？
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: system
+    attributes:
+      label: 运行系统
+      options:
+        - macOS
+        - Windows
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      placeholder: 例如 1.0.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 功能描述
+      placeholder: 你想实现什么功能？
+    validations:
+      required: true

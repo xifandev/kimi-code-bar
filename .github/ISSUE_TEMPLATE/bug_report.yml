@@ -1,0 +1,30 @@
+name: 🐛 Bug 反馈
+description: 遇到一个 bug，请简单描述一下
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: system
+    attributes:
+      label: 运行系统
+      options:
+        - macOS
+        - Windows
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      placeholder: 例如 1.0.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      placeholder: 发生了什么？如何复现？
+    validations:
+      required: true
