@@ -328,18 +328,6 @@ struct KimiMenu: View {
                     )
                 }
 
-                // 临时屏蔽测试：月度用量数据待验证
-                /*
-                CompactQuotaBar(
-                    title: "月度用量",
-                    badge: "测试",
-                    used: model.quota?.totalQuota.used ?? 0,
-                    limit: model.quota?.totalQuota.limit ?? 0,
-                    color: .purple,
-                    isLoading: model.isLoading
-                )
-                */
-
                 BoosterWalletCard(
                     wallet: model.quota?.boosterWallet,
                     isLoading: model.isLoading
@@ -447,14 +435,7 @@ struct KimiMenu: View {
         }
         .padding(16)
         .frame(width: 340)
-        .background(
-            ZStack {
-                Color.kimiPanelBackground
-                if colorScheme == .light {
-                    Color.clear.background(.ultraThinMaterial)
-                }
-            }
-        )
+        .background(Color.kimiPanelBackground)
         .popover(isPresented: $showSettings, arrowEdge: .bottom) {
             SettingsView()
         }
@@ -1220,14 +1201,7 @@ struct UpdateAlertView: View {
             .padding(.bottom, 20)
         }
         .frame(width: 520)
-        .background(
-            ZStack {
-                Color.kimiPanelBackground
-                if colorScheme == .light {
-                    Color.clear.background(.ultraThinMaterial)
-                }
-            }
-        )
+        .background(Color.kimiPanelBackground)
     }
 }
 
@@ -1281,14 +1255,7 @@ struct AppUpdateAlertView: View {
             .padding(.bottom, 20)
         }
         .frame(width: 360)
-        .background(
-            ZStack {
-                Color.kimiPanelBackground
-                if colorScheme == .light {
-                    Color.clear.background(.ultraThinMaterial)
-                }
-            }
-        )
+        .background(Color.kimiPanelBackground)
     }
 }
 
@@ -1368,14 +1335,7 @@ struct UpdateLogView: View {
             Spacer(minLength: 16)
         }
         .frame(width: 320)
-        .background(
-            ZStack {
-                Color.kimiPanelBackground
-                if colorScheme == .light {
-                    Color.clear.background(.ultraThinMaterial)
-                }
-            }
-        )
+        .background(Color.kimiPanelBackground)
         .onAppear {
             load()
         }
@@ -1577,14 +1537,7 @@ struct SettingsView: View {
             .padding(.vertical, 12)
         }
         .frame(width: 320)
-        .background(
-            ZStack {
-                Color.kimiPanelBackground
-                if colorScheme == .light {
-                    Color.clear.background(.ultraThinMaterial)
-                }
-            }
-        )
+        .background(Color.kimiPanelBackground)
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
