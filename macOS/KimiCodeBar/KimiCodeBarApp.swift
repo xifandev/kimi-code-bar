@@ -500,7 +500,7 @@ struct KimiMenu: View {
     @State private var isHoveredUpdateLog = false
     @State private var isHoveredUpdateError = false
     @State private var isMenuVisible = false
-    @State private var isLoadingKimiServer = false
+    @State private var kimiServerOperation: KimiServerOperation = .none
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
     private let githubURL = URL(string: "https://github.com/xifandev/KimiCodeBar")!
@@ -549,29 +549,29 @@ struct KimiMenu: View {
 
                 KimiServerCard(
                     state: model.kimiServerState,
-                    isLoading: isLoadingKimiServer,
+                    operation: kimiServerOperation,
                     onOpenWeb: {
                         model.openKimiWeb()
                     },
                     onStart: {
-                        isLoadingKimiServer = true
+                        kimiServerOperation = .starting
                         Task {
                             await model.startKimiServer()
-                            await MainActor.run { isLoadingKimiServer = false }
+                            await MainActor.run { kimiServerOperation = .none }
                         }
                     },
                     onStop: {
-                        isLoadingKimiServer = true
+                        kimiServerOperation = .stopping
                         Task {
                             await model.stopKimiServer()
-                            await MainActor.run { isLoadingKimiServer = false }
+                            await MainActor.run { kimiServerOperation = .none }
                         }
                     },
                     onRestart: {
-                        isLoadingKimiServer = true
+                        kimiServerOperation = .restarting
                         Task {
                             await model.restartKimiServer()
-                            await MainActor.run { isLoadingKimiServer = false }
+                            await MainActor.run { kimiServerOperation = .none }
                         }
                     }
                 )
@@ -1080,7 +1080,7 @@ struct BoosterWalletCard: View {
 
 struct KimiServerCard: View {
     let state: KimiServerState
-    let isLoading: Bool
+    let operation: KimiServerOperation
     let onOpenWeb: () -> Void
     let onStart: () -> Void
     let onStop: () -> Void
@@ -1089,6 +1089,10 @@ struct KimiServerCard: View {
     @State private var isHoveredOpenWeb = false
     @State private var isHoveredToggle = false
     @State private var isHoveredRestart = false
+
+    private var isLoading: Bool {
+        operation != .none
+    }
 
     private var statusColor: Color {
         switch state.status {
@@ -1169,6 +1173,7 @@ struct KimiServerCard: View {
                 serverActionButton(
                     title: toggleTitle,
                     isHovered: $isHoveredToggle,
+                    isLoading: operation == (isRunning ? .stopping : .starting),
                     action: isRunning ? onStop : onStart,
                     disabled: isLoading
                 )
@@ -1176,6 +1181,7 @@ struct KimiServerCard: View {
                 serverActionButton(
                     title: "重启",
                     isHovered: $isHoveredRestart,
+                    isLoading: operation == .restarting,
                     action: onRestart,
                     disabled: isLoading
                 )
@@ -1190,17 +1196,28 @@ struct KimiServerCard: View {
     private func serverActionButton(
         title: String,
         isHovered: Binding<Bool>,
+        isLoading: Bool,
         action: @escaping () -> Void,
         disabled: Bool
     ) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .foregroundStyle(disabled ? .kimiTextTertiary : (isHovered.wrappedValue ? .kimiTextPrimary : .kimiTextSecondary))
-                .background(isHovered.wrappedValue && !disabled ? Color.kimiTextPrimary.opacity(0.10) : Color.kimiTextPrimary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            ZStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .opacity(isLoading ? 0 : 1)
+
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .foregroundStyle(disabled ? .kimiTextTertiary : (isHovered.wrappedValue ? .kimiTextPrimary : .kimiTextSecondary))
+            .background(isHovered.wrappedValue && !disabled ? Color.kimiTextPrimary.opacity(0.10) : Color.kimiTextPrimary.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -2367,6 +2384,13 @@ struct KimiServerState: Equatable {
     var version: String = ""
     var port: Int = 58627
     var connections: Int = 0
+}
+
+enum KimiServerOperation: Equatable {
+    case none
+    case starting
+    case stopping
+    case restarting
 }
 
 // MARK: - 数据模型
