@@ -581,7 +581,7 @@ struct KimiMenu: View {
             HStack(spacing: 8) {
                 ActionButton(
                     title: "控制台",
-                    imageName: "kimi-console-icon",
+                    textIcon: "KIMI",
                     action: { NSWorkspace.shared.open(consoleURL) }
                 )
 
@@ -1231,7 +1231,7 @@ struct KimiServerCard: View {
 struct ActionButton: View {
     let title: String
     var icon: String? = nil
-    var imageName: String? = nil
+    var textIcon: String? = nil
     let action: () -> Void
     var disabled: Bool = false
     @State private var isHovered = false
@@ -1239,11 +1239,10 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                if let imageName {
-                    Image(imageName)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 18, height: 18)
+                if let textIcon {
+                    Text(textIcon)
+                        .font(.system(size: 11, weight: .bold))
+                        .frame(height: 16)
                 } else if let icon {
                     Image(systemName: icon)
                         .font(.system(size: 16, weight: .medium))
