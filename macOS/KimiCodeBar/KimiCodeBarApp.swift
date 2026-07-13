@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import UserNotifications
+import Darwin
 
 // MARK: - 主题
 
@@ -499,6 +500,7 @@ struct KimiMenu: View {
     @State private var isHoveredUpdateLog = false
     @State private var isHoveredUpdateError = false
     @State private var isMenuVisible = false
+    @State private var isLoadingKimiServer = false
 
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
     private let githubURL = URL(string: "https://github.com/xifandev/KimiCodeBar")!
@@ -543,6 +545,24 @@ struct KimiMenu: View {
                 BoosterWalletCard(
                     wallet: model.quota?.boosterWallet,
                     isLoading: model.isLoading
+                )
+
+                KimiServerCard(
+                    state: model.kimiServerState,
+                    isLoading: isLoadingKimiServer,
+                    onOpenWeb: {
+                        model.openKimiWeb()
+                    },
+                    onRestart: {
+                        isLoadingKimiServer = true
+                        Task {
+                            await model.restartKimiServer()
+                            await MainActor.run { isLoadingKimiServer = false }
+                        }
+                    },
+                    onUpgradeAndRestart: {
+                        model.upgradeAndRestartKimiServer()
+                    }
                 )
             }
 
@@ -665,6 +685,11 @@ struct KimiMenu: View {
         .frame(width: 340)
         .background(Color.kimiPanelBackground)
         .background(WindowVisibilityDetector(isVisible: $isMenuVisible))
+        .onChange(of: isMenuVisible) { _, isVisible in
+            if isVisible {
+                Task { await model.refreshKimiServerState() }
+            }
+        }
         .popover(isPresented: $showSettings, arrowEdge: .bottom) {
             SettingsView()
         }
@@ -778,16 +803,16 @@ struct KimiMenu: View {
         }
     }
 
-    private func formatKimiVersion(_ version: String) -> String {
-        guard version != "未检测到" else { return "未检测到" }
-        let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
-        let components = trimmed.split(separator: " ", omittingEmptySubsequences: true)
-        if let last = components.last {
-            return String(last)
-        }
-        return version
-    }
+}
 
+private func formatKimiVersion(_ version: String) -> String {
+    guard version != "未检测到" else { return "未检测到" }
+    let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
+    let components = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+    if let last = components.last {
+        return String(last)
+    }
+    return version
 }
 
 // MARK: - 用量卡片
@@ -1037,6 +1062,155 @@ struct BoosterWalletCard: View {
             return "无限制"
         }
         return formatCurrency(wallet.monthlyChargeLimitYuan, currency: wallet.currency)
+    }
+ }
+
+// MARK: - Kimi 本地服务卡片
+
+struct KimiServerCard: View {
+    let state: KimiServerState
+    let isLoading: Bool
+    let onOpenWeb: () -> Void
+    let onRestart: () -> Void
+    let onUpgradeAndRestart: () -> Void
+
+    @State private var isHoveredCard = false
+    @State private var isHoveredOpenWeb = false
+    @State private var isHoveredRestart = false
+    @State private var isHoveredUpgrade = false
+
+    private var statusColor: Color {
+        switch state.status {
+        case .running:
+            return .green
+        case .stopped, .error:
+            return .red
+        case .unknown:
+            return .kimiTextTertiary
+        }
+    }
+
+    private var statusText: String {
+        switch state.status {
+        case .running:
+            return "运行中"
+        case .stopped:
+            return "已停止"
+        case .error(let msg):
+            return msg
+        case .unknown:
+            return "检测中…"
+        }
+    }
+
+    private var detailText: String {
+        if isLoading || state.status == .unknown {
+            return "检测中…"
+        }
+        let version = formatKimiVersion(state.version)
+        switch state.status {
+        case .running:
+            return "v\(version) · 127.0.0.1:\(state.port) · \(state.connections) 个连接"
+        case .stopped, .error:
+            return "v\(version) · 127.0.0.1:\(state.port) · 点击启动或打开 Web UI"
+        case .unknown:
+            return "检测中…"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(statusColor)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text("Kimi 本地服务")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.kimiTextPrimary)
+
+                    Text(statusText)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(statusColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(statusColor.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                    Spacer()
+                }
+
+                Text(detailText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.kimiTextSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 4) {
+                serverIconButton(
+                    icon: "globe",
+                    isHovered: $isHoveredOpenWeb,
+                    action: onOpenWeb,
+                    disabled: isLoading
+                )
+
+                serverIconButton(
+                    icon: "arrow.clockwise",
+                    isHovered: $isHoveredRestart,
+                    action: onRestart,
+                    disabled: isLoading
+                )
+
+                serverIconButton(
+                    icon: "arrow.up.arrow.down",
+                    isHovered: $isHoveredUpgrade,
+                    action: onUpgradeAndRestart,
+                    disabled: isLoading
+                )
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.kimiCardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.kimiTextPrimary.opacity(isHoveredCard ? 0.06 : 0))
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(Rectangle())
+        .cursor(isLoading ? .arrow : .pointingHand)
+        .onHover { isHoveredCard = $0 }
+        .onTapGesture {
+            if !isLoading {
+                onOpenWeb()
+            }
+        }
+    }
+
+    private func serverIconButton(
+        icon: String,
+        isHovered: Binding<Bool>,
+        action: @escaping () -> Void,
+        disabled: Bool
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(disabled ? .kimiTextTertiary : (isHovered.wrappedValue ? .kimiTextPrimary : .kimiTextSecondary))
+                .background(isHovered.wrappedValue && !disabled ? Color.kimiTextPrimary.opacity(0.10) : Color.kimiTextPrimary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .cursor(disabled ? .arrow : .pointingHand)
+        .onHover { isHovered.wrappedValue = $0 }
     }
 }
 
@@ -2184,6 +2358,22 @@ extension View {
     }
 }
 
+// MARK: - 本地服务状态
+
+enum KimiServerStatus: Equatable {
+    case unknown
+    case running
+    case stopped
+    case error(String)
+}
+
+struct KimiServerState: Equatable {
+    var status: KimiServerStatus = .unknown
+    var version: String = ""
+    var port: Int = 58627
+    var connections: Int = 0
+}
+
 // MARK: - 数据模型
 
 @MainActor
@@ -2210,6 +2400,8 @@ final class KimiCodeBarModel: ObservableObject {
     @Published var updateErrorMessage: String?
 
     @Published var pendingAppUpdateVersion: String?
+
+    @Published var kimiServerState = KimiServerState()
 
     var hasCachedKimiUpdate: Bool {
         guard !cachedKimiLatestVersion.isEmpty, kimiVersion != "未检测到", kimiVersion != "检测中…" else { return false }
@@ -2293,6 +2485,161 @@ final class KimiCodeBarModel: ObservableObject {
         Task {
             await checkForKimiCLIUpdate()
             await checkForAppUpdate()
+            await refreshKimiServerState()
+        }
+    }
+
+    func refreshKimiServerState() async {
+        let state = await detectKimiServerState()
+        await MainActor.run {
+            self.kimiServerState = state
+        }
+    }
+
+    func openKimiWeb() {
+        let url = URL(string: "http://127.0.0.1:\(kimiServerState.port)/") ?? URL(string: "http://127.0.0.1:58627/")!
+        NSWorkspace.shared.open(url)
+    }
+
+    func restartKimiServer() async {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let uid = getuid()
+        let plistPath = "\(home)/Library/LaunchAgents/ai.moonshot.kimi-server.plist"
+
+        _ = await runShellCommand("/bin/launchctl bootout gui/\(uid)/ai.moonshot.kimi-server || true")
+
+        for _ in 0..<10 {
+            let list = await runShellCommand("/bin/launchctl list | /usr/bin/grep ai.moonshot.kimi-server || true")
+            if list.output.isEmpty {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        _ = await runShellCommand("/bin/launchctl bootstrap gui/\(uid) \(plistPath)")
+        try? await Task.sleep(nanoseconds: 4_000_000_000)
+        await refreshKimiServerState()
+    }
+
+    private func runShellCommand(_ command: String) async -> (output: String, exitCode: Int32) {
+        return await Task.detached(priority: .utility) {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/bash")
+            task.arguments = ["-lc", command]
+
+            let pipe = Pipe()
+            task.standardOutput = pipe
+            task.standardError = pipe
+
+            do {
+                try task.run()
+                task.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let output = String(data: data, encoding: .utf8) ?? ""
+                return (output.trimmingCharacters(in: .whitespacesAndNewlines), task.terminationStatus)
+            } catch {
+                return ("", -1)
+            }
+        }.value
+    }
+
+    func upgradeAndRestartKimiServer() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let uid = getuid()
+        let scriptPath = "\(home)/.kimi-code/server/upgrade_and_restart.sh"
+
+        let script = """
+        #!/bin/bash
+        set -e
+
+        echo "=========================================="
+        echo "  Kimi Code Server 升级 / 重启脚本"
+        echo "=========================================="
+        echo ""
+
+        echo "[1/4] 正在升级 Kimi Code CLI..."
+        \(home)/.kimi-code/bin/kimi upgrade
+        echo ""
+
+        echo "[2/4] 正在停止 Kimi Server..."
+        launchctl bootout gui/\(uid)/ai.moonshot.kimi-server || true
+
+        echo "等待旧进程退出..."
+        for i in {1..10}; do
+            if ! launchctl list | grep -q ai.moonshot.kimi-server; then
+                break
+            fi
+            sleep 1
+        done
+        echo ""
+
+        echo "[3/4] 正在启动 Kimi Server..."
+        launchctl bootstrap gui/\(uid) \(home)/Library/LaunchAgents/ai.moonshot.kimi-server.plist
+        echo ""
+
+        echo "[4/4] 等待服务启动并验证..."
+        sleep 4
+
+        PID=$(launchctl list | grep ai.moonshot.kimi-server | awk '{print $1}')
+        VERSION=$(\(home)/.kimi-code/bin/kimi --version)
+
+        if [ -n "$PID" ] && [ "$PID" != "-" ]; then
+            echo "✅ Kimi Server 重启成功"
+            echo "   PID:    $PID"
+            echo "   版本:   $VERSION"
+            echo "   地址:   http://127.0.0.1:58627/"
+        else
+            echo "❌ 服务启动失败，请检查日志:"
+            echo "   \(home)/.kimi-code/server/launchd.out.log"
+        fi
+
+        echo ""
+        read -n 1 -p "按任意键关闭窗口..."
+        echo ""
+        """
+
+        let serverDir = "\(home)/.kimi-code/server"
+        try? FileManager.default.createDirectory(atPath: serverDir, withIntermediateDirectories: true, attributes: nil)
+        try? script.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptPath)
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = [
+            "-e",
+            """
+            tell application "Terminal"
+                activate
+                do script "\(scriptPath)"
+            end tell
+            """
+        ]
+        try? task.run()
+    }
+
+    private func detectKimiServerState() async -> KimiServerState {
+        let version = await detectKimiCLIVersion()
+        let psResult = await runKimiCommand(arguments: ["server", "ps"])
+
+        if psResult.exitCode == 0 {
+            let lines = psResult.output
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && !$0.hasPrefix("ID") }
+            return KimiServerState(
+                status: .running,
+                version: version,
+                port: 58627,
+                connections: lines.count
+            )
+        } else {
+            let errorMsg = psResult.output.isEmpty ? "服务未运行" : psResult.output
+            return KimiServerState(
+                status: .stopped,
+                version: version,
+                port: 58627,
+                connections: 0
+            )
         }
     }
 
