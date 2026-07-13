@@ -1241,15 +1241,19 @@ struct ActionButton: View {
             VStack(spacing: 6) {
                 if let textIcon {
                     Text(textIcon)
-                        .font(.system(size: 11, weight: .bold))
-                        .frame(height: 16)
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 18, height: 18, alignment: .center)
+                        .multilineTextAlignment(.center)
                 } else if let icon {
                     Image(systemName: icon)
                         .font(.system(size: 16, weight: .medium))
+                        .frame(width: 18, height: 18, alignment: .center)
                 }
 
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
