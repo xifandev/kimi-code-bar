@@ -2099,13 +2099,13 @@ final class SettingsWindowManager {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "设置"
-        window.minSize = NSSize(width: 520, height: 420)
+        window.minSize = NSSize(width: 720, height: 480)
         window.center()
         window.contentView = NSHostingView(rootView: SettingsRootView())
         window.isReleasedWhenClosed = false
@@ -2119,107 +2119,63 @@ final class SettingsWindowManager {
 // MARK: - 设置根视图
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general
-    case api
-    case menuBar
-    case about
+    case basic
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .general: return "通用"
-        case .api: return "API"
-        case .menuBar: return "菜单栏"
-        case .about: return "关于"
+        case .basic: return "基本设置"
         }
     }
 
     var icon: String {
         switch self {
-        case .general: return "gear"
-        case .api: return "key"
-        case .menuBar: return "menubar.rectangle"
-        case .about: return "info.circle"
+        case .basic: return "gear"
         }
     }
 }
 
 struct SettingsRootView: View {
-    @State private var selectedPane: SettingsPane = .general
+    @State private var selectedPane: SettingsPane = .basic
 
     var body: some View {
-        NavigationSplitView {
+        HSplitView {
             List(SettingsPane.allCases, selection: $selectedPane) { pane in
                 Label(pane.title, systemImage: pane.icon)
                     .tag(pane)
             }
-            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
-        } detail: {
-            switch selectedPane {
-            case .general:
-                GeneralSettingsView()
-            case .api:
-                APISettingsView()
-            case .menuBar:
-                MenuBarSettingsView()
-            case .about:
-                AboutSettingsView()
-            }
+            .listStyle(.sidebar)
+            .frame(minWidth: 160, idealWidth: 180, maxWidth: 220)
+
+            BasicSettingsView()
         }
-        .toolbar(removing: .sidebarToggle)
     }
 }
 
-// MARK: - 设置页面顶部卡片
+// MARK: - 设置字段焦点
 
-struct SettingsHeroCard: View {
-    let icon: String
-    let title: String
-    let description: String
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.kimiBlue)
-                        .shadow(color: Color.kimiBlue.opacity(0.35), radius: 10, x: 0, y: 4)
-                )
-
-            Text(title)
-                .font(.system(size: 20, weight: .bold))
-
-            Text(description)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(Color.kimiCardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
+enum APISettingField: Hashable {
+    case apiKey
+    case quotaInterval
+    case updateInterval
 }
 
-// MARK: - 通用设置
+// MARK: - 基本设置
 
-struct GeneralSettingsView: View {
+struct BasicSettingsView: View {
     @StateObject private var themeManager = ThemeManager.shared
+    @StateObject private var model = KimiCodeBarModel.shared
+
+    @State private var editingKey = ""
+    @State private var isEditingKey = false
+    @State private var quotaIntervalText = "5"
+    @State private var updateIntervalText = "30"
+    @FocusState private var focusedField: APISettingField?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                SettingsHeroCard(
-                    icon: "gear",
-                    title: "通用",
-                    description: "管理 KimiCodeBar 的整体外观与通用行为。"
-                )
-
                 Form {
                     Section {
                         Picker("", selection: $themeManager.theme) {
@@ -2235,152 +2191,184 @@ struct GeneralSettingsView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
-                }
-                .formStyle(.grouped)
-            }
-            .padding()
-        }
-        .navigationTitle(SettingsPane.general.title)
-    }
-}
 
-// MARK: - API 设置
-
-enum APISettingField: Hashable {
-    case apiKey
-    case quotaInterval
-    case updateInterval
-}
-
-struct APISettingsView: View {
-    @StateObject private var model = KimiCodeBarModel.shared
-    @State private var editingKey = ""
-    @State private var isEditingKey = false
-    @State private var quotaIntervalText = "5"
-    @State private var updateIntervalText = "30"
-    @FocusState private var focusedField: APISettingField?
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                SettingsHeroCard(
-                    icon: "key",
-                    title: "API",
-                    description: "配置 Kimi API Key 与自动刷新间隔。"
-                )
-
-                Form {
                     Section {
                         HStack(spacing: 10) {
                             if isEditingKey {
-                        SecureField("sk-kimi-...", text: $editingKey)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: .infinity)
-                            .focused($focusedField, equals: .apiKey)
-                            .onChange(of: editingKey) { _, newValue in
-                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if trimmed != newValue {
-                                    editingKey = trimmed
-                                }
+                                SecureField("sk-kimi-...", text: $editingKey)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: .infinity)
+                                    .focused($focusedField, equals: .apiKey)
+                                    .onChange(of: editingKey) { _, newValue in
+                                        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        if trimmed != newValue {
+                                            editingKey = trimmed
+                                        }
+                                    }
+                            } else {
+                                Text(maskedKey(model.key))
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.kimiTextSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.kimiTextPrimary.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
-                    } else {
-                        Text(maskedKey(model.key))
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.kimiTextSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.kimiTextPrimary.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
 
-                    Button(action: {
-                        if isEditingKey {
-                            saveKey()
-                        } else {
-                            editingKey = model.key
-                            isEditingKey = true
-                            model.errorMessage = nil
-                            focusedField = .apiKey
+                            Button(action: {
+                                if isEditingKey {
+                                    saveKey()
+                                } else {
+                                    editingKey = model.key
+                                    isEditingKey = true
+                                    model.errorMessage = nil
+                                    focusedField = .apiKey
+                                }
+                            }) {
+                                Text(isEditingKey ? "保存" : "修改")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.kimiBlue)
+                            .disabled(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .cursor(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
                         }
-                    }) {
-                        Text(isEditingKey ? "保存" : "修改")
+
+                        if let error = model.errorMessage {
+                            ErrorMessageView(message: error)
+                        }
+
+                        LinkRow(
+                            title: "去控制台获取 API Key",
+                            icon: "arrow.up.right",
+                            url: URL(string: "https://www.kimi.com/code/console")!
+                        )
+                        .padding(.top, 4)
+                    } header: {
+                        Text("API Key")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.kimiBlue)
-                    .disabled(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .cursor(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
-                }
 
-                if let error = model.errorMessage {
-                    ErrorMessageView(message: error)
-                }
+                    Section {
+                        HStack {
+                            Text("额度刷新间隔")
+                            Spacer()
+                            HStack(spacing: 6) {
+                                TextField("分钟", text: $quotaIntervalText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 70)
+                                    .focused($focusedField, equals: .quotaInterval)
+                                    .onChange(of: quotaIntervalText) { _, newValue in
+                                        let filtered = newValue.filter { $0.isNumber }
+                                        if filtered != newValue {
+                                            quotaIntervalText = filtered
+                                        }
+                                    }
 
-                LinkRow(
-                    title: "去控制台获取 API Key",
-                    icon: "arrow.up.right",
-                    url: URL(string: "https://www.kimi.com/code/console")!
-                )
-                .padding(.top, 4)
-            } header: {
-                Text("API Key")
-            }
-
-            Section {
-                HStack {
-                    Text("额度刷新间隔")
-                    Spacer()
-                    HStack(spacing: 6) {
-                        TextField("分钟", text: $quotaIntervalText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 70)
-                            .focused($focusedField, equals: .quotaInterval)
-                            .onChange(of: quotaIntervalText) { _, newValue in
-                                let filtered = newValue.filter { $0.isNumber }
-                                if filtered != newValue {
-                                    quotaIntervalText = filtered
-                                }
+                                Text("分钟")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
                             }
+                        }
 
-                        Text("分钟")
-                            .font(.system(size: 12))
+                        HStack {
+                            Text("检查更新间隔")
+                            Spacer()
+                            HStack(spacing: 6) {
+                                TextField("分钟", text: $updateIntervalText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 70)
+                                    .focused($focusedField, equals: .updateInterval)
+                                    .onChange(of: updateIntervalText) { _, newValue in
+                                        let filtered = newValue.filter { $0.isNumber }
+                                        if filtered != newValue {
+                                            updateIntervalText = filtered
+                                        }
+                                    }
+
+                                Text("分钟")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("自动刷新")
+                    } footer: {
+                        Text("设置越短，数据越及时，但会增加网络和系统负担。")
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
-                }
 
-                HStack {
-                    Text("检查更新间隔")
-                    Spacer()
-                    HStack(spacing: 6) {
-                        TextField("分钟", text: $updateIntervalText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 70)
-                            .focused($focusedField, equals: .updateInterval)
-                            .onChange(of: updateIntervalText) { _, newValue in
-                                let filtered = newValue.filter { $0.isNumber }
-                                if filtered != newValue {
-                                    updateIntervalText = filtered
-                                }
+                    Section {
+                        Picker("显示方案", selection: $model.menuBarDisplayScheme) {
+                            ForEach(MenuBarDisplayScheme.allCases) { scheme in
+                                Text(scheme.displayName).tag(scheme)
                             }
+                        }
+                        .pickerStyle(.radioGroup)
 
-                        Text("分钟")
-                            .font(.system(size: 12))
+                        HStack(spacing: 12) {
+                            Text("实时预览")
+                                .font(.system(size: 13))
+
+                            Spacer()
+
+                            if let quota = model.quota {
+                                Image(nsImage: MenuBarTextRenderer.image(
+                                    scheme: model.menuBarDisplayScheme,
+                                    weekly: quota.weekly.percentage,
+                                    fiveHour: quota.fiveHour.percentage
+                                ))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.black)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            } else {
+                                Text("-- · --")
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("菜单栏显示方案")
+                    } footer: {
+                        Text("默认方案保留原有的 7D / 5H 紧凑样式，其他方案会在菜单栏显示更多信息。")
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
-                }
-            } header: {
-                Text("自动刷新")
-            } footer: {
-                Text("设置越短，数据越及时，但会增加网络和系统负担。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
+
+                    Section {
+                        VStack(spacing: 16) {
+                            AnimatedKimiCodeLogo(width: 64, isAnimating: true)
+
+                            Text("KimiCodeBar")
+                                .font(.system(size: 22, weight: .bold))
+
+                            Text("版本 \(appVersion())")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+
+                            if model.kimiVersion != "检测中…" && model.kimiVersion != "未检测到" {
+                                Text("KimiCode CLI \(formatKimiVersion(model.kimiVersion))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            HStack(spacing: 12) {
+                                LinkRow(title: "GitHub", icon: "arrow.up.right", url: URL(string: "https://github.com/xifandev/KimiCodeBar")!)
+                                LinkRow(title: "反馈问题", icon: "exclamationmark.bubble", url: URL(string: "https://github.com/xifandev/KimiCodeBar/issues")!)
+                            }
+                            .padding(.top, 8)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    } header: {
+                        Text("关于")
+                    }
                 }
                 .formStyle(.grouped)
             }
             .padding()
         }
-        .navigationTitle(SettingsPane.api.title)
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
@@ -2390,6 +2378,8 @@ struct APISettingsView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 focusedField = nil
             }
+
+            model.refresh()
         }
         .onDisappear {
             commitIntervals()
@@ -2429,117 +2419,6 @@ struct APISettingsView: View {
         let prefix = String(key.prefix(7))
         let suffix = String(key.suffix(5))
         return "\(prefix)...\(suffix)"
-    }
-}
-
-// MARK: - 菜单栏设置
-
-struct MenuBarSettingsView: View {
-    @StateObject private var model = KimiCodeBarModel.shared
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                SettingsHeroCard(
-                    icon: "menubar.rectangle",
-                    title: "菜单栏",
-                    description: "自定义菜单栏图标的显示方案与实时预览。"
-                )
-
-                Form {
-                    Section {
-                        Picker("显示方案", selection: $model.menuBarDisplayScheme) {
-                    ForEach(MenuBarDisplayScheme.allCases) { scheme in
-                        Text(scheme.displayName).tag(scheme)
-                    }
-                }
-                .pickerStyle(.radioGroup)
-
-                HStack(spacing: 12) {
-                    Text("实时预览")
-                        .font(.system(size: 13))
-
-                    Spacer()
-
-                    if let quota = model.quota {
-                        Image(nsImage: MenuBarTextRenderer.image(
-                            scheme: model.menuBarDisplayScheme,
-                            weekly: quota.weekly.percentage,
-                            fiveHour: quota.fiveHour.percentage
-                        ))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.black)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                    } else {
-                        Text("-- · --")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("菜单栏显示方案")
-            } footer: {
-                Text("默认方案保留原有的 7D / 5H 紧凑样式，其他方案会在菜单栏显示更多信息。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-                }
-                .formStyle(.grouped)
-            }
-            .padding()
-        }
-        .navigationTitle(SettingsPane.menuBar.title)
-        .onAppear {
-            model.refresh()
-        }
-    }
-}
-
-// MARK: - 关于
-
-struct AboutSettingsView: View {
-    @StateObject private var model = KimiCodeBarModel.shared
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                SettingsHeroCard(
-                    icon: "info.circle",
-                    title: "关于",
-                    description: "KimiCodeBar 版本信息与支持链接。"
-                )
-
-                VStack(spacing: 16) {
-                    AnimatedKimiCodeLogo(width: 64, isAnimating: true)
-
-                    Text("KimiCodeBar")
-                        .font(.system(size: 22, weight: .bold))
-
-                    Text("版本 \(appVersion())")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-
-                    if model.kimiVersion != "检测中…" && model.kimiVersion != "未检测到" {
-                        Text("KimiCode CLI \(formatKimiVersion(model.kimiVersion))")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack(spacing: 12) {
-                        LinkRow(title: "GitHub", icon: "arrow.up.right", url: URL(string: "https://github.com/xifandev/KimiCodeBar")!)
-                        LinkRow(title: "反馈问题", icon: "exclamationmark.bubble", url: URL(string: "https://github.com/xifandev/KimiCodeBar/issues")!)
-                    }
-                    .padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-                .background(Color.kimiCardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-            .padding()
-        }
-        .navigationTitle(SettingsPane.about.title)
     }
 }
 
