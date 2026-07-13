@@ -2273,48 +2273,44 @@ struct BasicSettingsView: View {
                     }
 
                     Section {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("额度刷新间隔")
+                        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+                            GridRow {
+                                Text("额度刷新间隔")
 
-                            Spacer()
-
-                            TextField("", text: $quotaIntervalText)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .focused($focusedField, equals: .quotaInterval)
-                                .onChange(of: quotaIntervalText) { _, newValue in
-                                    let filtered = newValue.filter { $0.isNumber }
-                                    if filtered != newValue {
-                                        quotaIntervalText = filtered
+                                TextField("", text: $quotaIntervalText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 70)
+                                    .focused($focusedField, equals: .quotaInterval)
+                                    .onChange(of: quotaIntervalText) { _, newValue in
+                                        let filtered = newValue.filter { $0.isNumber }
+                                        if filtered != newValue {
+                                            quotaIntervalText = filtered
+                                        }
                                     }
-                                }
 
-                            Text("分钟")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .frame(minWidth: 24, alignment: .leading)
-                        }
+                                Text("分钟")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
 
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("检查更新间隔")
+                            GridRow {
+                                Text("检查更新间隔")
 
-                            Spacer()
-
-                            TextField("", text: $updateIntervalText)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 70)
-                                .focused($focusedField, equals: .updateInterval)
-                                .onChange(of: updateIntervalText) { _, newValue in
-                                    let filtered = newValue.filter { $0.isNumber }
-                                    if filtered != newValue {
-                                        updateIntervalText = filtered
+                                TextField("", text: $updateIntervalText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 70)
+                                    .focused($focusedField, equals: .updateInterval)
+                                    .onChange(of: updateIntervalText) { _, newValue in
+                                        let filtered = newValue.filter { $0.isNumber }
+                                        if filtered != newValue {
+                                            updateIntervalText = filtered
+                                        }
                                     }
-                                }
 
-                            Text("分钟")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .frame(minWidth: 24, alignment: .leading)
+                                Text("分钟")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     } header: {
                         Text("自动刷新")
