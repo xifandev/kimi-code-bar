@@ -590,7 +590,6 @@ final class KimiCodeLogoLayerView: NSView {
 struct KimiMenu: View {
     @StateObject private var model = KimiCodeBarModel.shared
     @Environment(\.colorScheme) private var colorScheme
-    @State private var showSettings = false
     @State private var showUpdateAlert = false
     @State private var showAppUpdateAlert = false
     @State private var showUpdateLog = false
@@ -693,7 +692,7 @@ struct KimiMenu: View {
                 ActionButton(
                     title: "设置",
                     icon: "gearshape",
-                    action: { showSettings = true }
+                    action: { SettingsWindowManager.shared.show() }
                 )
 
                 ActionButton(
@@ -799,9 +798,6 @@ struct KimiMenu: View {
                 Task { await model.refreshKimiServerState() }
             }
         }
-        .popover(isPresented: $showSettings, arrowEdge: .bottom) {
-            SettingsView()
-        }
         .popover(isPresented: $showUpdateAlert, arrowEdge: .trailing) {
             UpdateAlertView(
                 currentVersion: formatKimiVersion(model.kimiVersion),
@@ -837,7 +833,7 @@ struct KimiMenu: View {
         .onAppear {
             model.checkCachedKimiUpdate()
             if model.key.isEmpty {
-                showSettings = true
+                SettingsWindowManager.shared.show()
             } else if model.pendingUpdateVersion != nil {
                 showUpdateAlert = true
             }
@@ -847,7 +843,7 @@ struct KimiMenu: View {
                 await model.checkForKimiCLIUpdate()
                 await model.checkForAppUpdate()
 
-                if model.pendingAppUpdateVersion != nil && model.pendingUpdateVersion == nil && !showSettings {
+                if model.pendingAppUpdateVersion != nil && model.pendingUpdateVersion == nil {
                     showAppUpdateAlert = true
                 }
             }
@@ -856,7 +852,7 @@ struct KimiMenu: View {
             if visible {
                 model.checkCachedKimiUpdate()
                 if model.key.isEmpty {
-                    showSettings = true
+                    SettingsWindowManager.shared.show()
                 } else if model.pendingUpdateVersion != nil {
                     showUpdateAlert = true
                 }
@@ -866,19 +862,19 @@ struct KimiMenu: View {
                     await model.checkForKimiCLIUpdate()
                     await model.checkForAppUpdate()
 
-                    if model.pendingAppUpdateVersion != nil && model.pendingUpdateVersion == nil && !showSettings {
+                    if model.pendingAppUpdateVersion != nil && model.pendingUpdateVersion == nil {
                         showAppUpdateAlert = true
                     }
                 }
             }
         }
         .onChange(of: model.pendingAppUpdateVersion) { _, newValue in
-            if newValue != nil && model.pendingUpdateVersion == nil && !showSettings {
+            if newValue != nil && model.pendingUpdateVersion == nil {
                 showAppUpdateAlert = true
             }
         }
         .onChange(of: showUpdateAlert) { _, isShowing in
-            if !isShowing && model.pendingAppUpdateVersion != nil && !showSettings {
+            if !isShowing && model.pendingAppUpdateVersion != nil {
                 showAppUpdateAlert = true
             }
         }
@@ -1803,7 +1799,7 @@ struct UpdateAlertView: View {
                     Text("稍后再说")
                         .frame(minWidth: 80)
                 }
-                .buttonStyle(KimiButtonStyle(isProminent: false))
+                .buttonStyle(.bordered)
                 .cursor(.pointingHand)
 
                 Spacer()
@@ -1812,7 +1808,8 @@ struct UpdateAlertView: View {
                     Text("安装更新")
                         .frame(minWidth: 80)
                 }
-                .buttonStyle(KimiButtonStyle(isProminent: true))
+                .buttonStyle(.borderedProminent)
+                .tint(.kimiBlue)
                 .cursor(.pointingHand)
             }
             .padding(.horizontal, 24)
@@ -1862,7 +1859,7 @@ struct AppUpdateAlertView: View {
                     Text("忽略本次更新")
                         .frame(minWidth: 80)
                 }
-                .buttonStyle(KimiButtonStyle(isProminent: false))
+                .buttonStyle(.bordered)
                 .cursor(.pointingHand)
 
                 Spacer()
@@ -1871,7 +1868,8 @@ struct AppUpdateAlertView: View {
                     Text("查看更新")
                         .frame(minWidth: 80)
                 }
-                .buttonStyle(KimiButtonStyle(isProminent: true))
+                .buttonStyle(.borderedProminent)
+                .tint(.kimiBlue)
                 .cursor(.pointingHand)
             }
             .padding(.horizontal, 24)
@@ -2084,85 +2082,141 @@ struct UpdateErrorPopoverView: View {
     }
 }
 
-// MARK: - 设置弹窗
+// MARK: - 设置窗口
 
-enum SettingField: Hashable {
+@MainActor
+final class SettingsWindowManager {
+    static let shared = SettingsWindowManager()
+    private var window: NSWindow?
+
+    private init() {}
+
+    func show() {
+        if let window = window {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "设置"
+        window.minSize = NSSize(width: 520, height: 420)
+        window.center()
+        window.contentView = NSHostingView(rootView: SettingsRootView())
+        window.isReleasedWhenClosed = false
+        self.window = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+// MARK: - 设置根视图
+
+enum SettingsPane: String, CaseIterable, Identifiable {
+    case general
+    case api
+    case menuBar
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "通用"
+        case .api: return "API"
+        case .menuBar: return "菜单栏"
+        case .about: return "关于"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general: return "gear"
+        case .api: return "key"
+        case .menuBar: return "menubar.rectangle"
+        case .about: return "info.circle"
+        }
+    }
+}
+
+struct SettingsRootView: View {
+    @State private var selectedPane: SettingsPane = .general
+
+    var body: some View {
+        NavigationSplitView {
+            List(SettingsPane.allCases, selection: $selectedPane) { pane in
+                Label(pane.title, systemImage: pane.icon)
+                    .tag(pane)
+            }
+            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
+        } detail: {
+            switch selectedPane {
+            case .general:
+                GeneralSettingsView()
+            case .api:
+                APISettingsView()
+            case .menuBar:
+                MenuBarSettingsView()
+            case .about:
+                AboutSettingsView()
+            }
+        }
+    }
+}
+
+// MARK: - 通用设置
+
+struct GeneralSettingsView: View {
+    @StateObject private var themeManager = ThemeManager.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("", selection: $themeManager.theme) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Text(theme.displayName).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("外观")
+            } footer: {
+                Text("更改外观后，菜单栏图标与面板会跟随系统或强制使用指定主题。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle(SettingsPane.general.title)
+    }
+}
+
+// MARK: - API 设置
+
+enum APISettingField: Hashable {
     case apiKey
     case quotaInterval
     case updateInterval
 }
 
-struct SettingsView: View {
+struct APISettingsView: View {
     @StateObject private var model = KimiCodeBarModel.shared
-    @StateObject private var themeManager = ThemeManager.shared
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dismiss) private var dismiss
     @State private var editingKey = ""
     @State private var isEditingKey = false
-    @State private var isHoveredCloseButton = false
-    @State private var isHoveredConsoleLink = false
     @State private var quotaIntervalText = "5"
     @State private var updateIntervalText = "30"
-    @FocusState private var focusedField: SettingField?
+    @FocusState private var focusedField: APISettingField?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 顶部标题
-            HStack(spacing: 12) {
-                Text("设置")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.kimiTextPrimary)
-
-                Spacer()
-
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(isHoveredCloseButton ? .kimiTextPrimary : .kimiTextSecondary)
-                        .frame(width: 24, height: 24)
-                        .background(isHoveredCloseButton ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .cursor(.pointingHand)
-                .onHover { isHoveredCloseButton = $0 }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-
-            // 优雅分割线
-            Divider()
-                .background(Color.kimiTextPrimary.opacity(0.10))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-
-            // KMK 配置
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Text("API Key")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.kimiTextSecondary)
-
-                    Spacer()
-
-                    Button(action: { NSWorkspace.shared.open(URL(string: "https://www.kimi.com/code/console")!) }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 10))
-                            Text("去控制台获取")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundStyle(isHoveredConsoleLink ? .kimiTextPrimary : .kimiTextSecondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(isHoveredConsoleLink ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
-                    .cursor(.pointingHand)
-                    .onHover { isHoveredConsoleLink = $0 }
-                }
-
+        Form {
+            Section {
                 HStack(spacing: 10) {
                     if isEditingKey {
                         SecureField("sk-kimi-...", text: $editingKey)
@@ -2198,91 +2252,91 @@ struct SettingsView: View {
                     }) {
                         Text(isEditingKey ? "保存" : "修改")
                     }
-                    .buttonStyle(KimiButtonStyle(isProminent: true))
+                    .buttonStyle(.borderedProminent)
+                    .tint(.kimiBlue)
                     .disabled(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .cursor(isEditingKey && editingKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
                 }
-                .frame(maxWidth: .infinity)
 
                 if let error = model.errorMessage {
                     ErrorMessageView(message: error)
                 }
+
+                LinkRow(
+                    title: "去控制台获取 API Key",
+                    icon: "arrow.up.right",
+                    url: URL(string: "https://www.kimi.com/code/console")!
+                )
+                .padding(.top, 4)
+            } header: {
+                Text("API Key")
             }
-            .padding(14)
-            .background(Color.kimiTextPrimary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 20)
 
-            // 界面配色
-            VStack(alignment: .leading, spacing: 8) {
-                Text("界面配色")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.kimiTextSecondary)
+            Section {
+                HStack {
+                    Text("额度刷新间隔")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        TextField("分钟", text: $quotaIntervalText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 70)
+                            .focused($focusedField, equals: .quotaInterval)
+                            .onChange(of: quotaIntervalText) { _, newValue in
+                                let filtered = newValue.filter { $0.isNumber }
+                                if filtered != newValue {
+                                    quotaIntervalText = filtered
+                                }
+                            }
 
-                Picker("", selection: $themeManager.theme) {
-                    ForEach(AppTheme.allCases) { theme in
-                        Text(theme.displayName).tag(theme)
+                        Text("分钟")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.segmented)
-            }
-            .padding(14)
-            .background(Color.kimiTextPrimary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
 
-            // 刷新与检查设置
-            VStack(alignment: .leading, spacing: 12) {
-                Text("间隔设置")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.kimiTextSecondary)
+                HStack {
+                    Text("检查更新间隔")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        TextField("分钟", text: $updateIntervalText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 70)
+                            .focused($focusedField, equals: .updateInterval)
+                            .onChange(of: updateIntervalText) { _, newValue in
+                                let filtered = newValue.filter { $0.isNumber }
+                                if filtered != newValue {
+                                    updateIntervalText = filtered
+                                }
+                            }
 
-                IntervalSettingRow(
-                    title: "额度刷新间隔",
-                    value: $quotaIntervalText,
-                    focusField: .quotaInterval,
-                    focusedField: $focusedField
-                )
-
-                IntervalSettingRow(
-                    title: "检查更新间隔",
-                    value: $updateIntervalText,
-                    focusField: .updateInterval,
-                    focusedField: $focusedField
-                )
-            }
-            .padding(14)
-            .background(Color.kimiTextPrimary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-
-            // 底部操作按钮
-            HStack(spacing: 12) {
-                Spacer()
-
-                Button(action: done) {
-                    Text("完成")
+                        Text("分钟")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(KimiButtonStyle(isProminent: true))
-                .cursor(.pointingHand)
+            } header: {
+                Text("自动刷新")
+            } footer: {
+                Text("设置越短，数据越及时，但会增加网络和系统负担。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
         }
-        .frame(width: 320)
-        .background(Color.kimiPanelBackground)
+        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle(SettingsPane.api.title)
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
             quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
             updateIntervalText = intervalText(from: model.updateCheckInterval)
 
-            // 避免设置气泡打开时自动聚焦到输入框
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 focusedField = nil
             }
+        }
+        .onDisappear {
+            commitIntervals()
         }
     }
 
@@ -2312,18 +2366,6 @@ struct SettingsView: View {
         isEditingKey = false
         commitIntervals()
         model.refresh()
-
-        // 稍等片刻：如果 API 返回正常（无错误），自动关闭设置气泡
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            if model.errorMessage == nil {
-                dismiss()
-            }
-        }
-    }
-
-    private func done() {
-        commitIntervals()
-        dismiss()
     }
 
     private func maskedKey(_ key: String) -> String {
@@ -2334,57 +2376,94 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - 组件
+// MARK: - 菜单栏设置
 
-struct IntervalSettingRow: View {
-    let title: String
-    @Binding var value: String
-    let focusField: SettingField
-    @FocusState.Binding var focusedField: SettingField?
+struct MenuBarSettingsView: View {
+    @StateObject private var model = KimiCodeBarModel.shared
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.kimiTextPrimary)
-
-            Spacer()
-
-            HStack(spacing: 6) {
-                TextField("分钟", text: $value)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 70)
-                    .focused($focusedField, equals: focusField)
-                    .onChange(of: value) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue {
-                            value = filtered
-                        }
+        Form {
+            Section {
+                Picker("显示方案", selection: $model.menuBarDisplayScheme) {
+                    ForEach(MenuBarDisplayScheme.allCases) { scheme in
+                        Text(scheme.displayName).tag(scheme)
                     }
+                }
+                .pickerStyle(.radioGroup)
 
-                Text("分钟")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.kimiTextSecondary)
+                HStack(spacing: 12) {
+                    Text("实时预览")
+                        .font(.system(size: 13))
+
+                    Spacer()
+
+                    if let quota = model.quota {
+                        Image(nsImage: MenuBarTextRenderer.image(
+                            scheme: model.menuBarDisplayScheme,
+                            weekly: quota.weekly.percentage,
+                            fiveHour: quota.fiveHour.percentage
+                        ))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    } else {
+                        Text("-- · --")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("菜单栏显示方案")
+            } footer: {
+                Text("默认方案保留原有的 7D / 5H 紧凑样式，其他方案会在菜单栏显示更多信息。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 6)
+        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .navigationTitle(SettingsPane.menuBar.title)
+        .onAppear {
+            model.refresh()
+        }
     }
 }
 
-struct KimiButtonStyle: ButtonStyle {
-    let isProminent: Bool
+// MARK: - 关于
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isProminent ? Color.kimiBlue : Color.kimiTextPrimary.opacity(0.12))
-            )
-            .opacity(configuration.isPressed ? 0.75 : 1.0)
+struct AboutSettingsView: View {
+    @StateObject private var model = KimiCodeBarModel.shared
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            AnimatedKimiCodeLogo(width: 64, isAnimating: true)
+
+            Text("KimiCodeBar")
+                .font(.system(size: 22, weight: .bold))
+
+            Text("版本 \(appVersion())")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            if model.kimiVersion != "检测中…" && model.kimiVersion != "未检测到" {
+                Text("KimiCode CLI \(formatKimiVersion(model.kimiVersion))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                LinkRow(title: "GitHub", icon: "arrow.up.right", url: URL(string: "https://github.com/xifandev/KimiCodeBar")!)
+                LinkRow(title: "反馈问题", icon: "exclamationmark.bubble", url: URL(string: "https://github.com/xifandev/KimiCodeBar/issues")!)
+            }
+            .padding(.top, 8)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(SettingsPane.about.title)
     }
 }
 
