@@ -694,6 +694,7 @@ struct KimiMenu: View {
                     icon: "gearshape",
                     action: { SettingsWindowManager.shared.show() }
                 )
+                .keyboardShortcut(",", modifiers: .command)
 
                 ActionButton(
                     title: "退出",
@@ -2106,6 +2107,7 @@ final class SettingsWindowManager {
         )
         window.title = "设置"
         window.minSize = NSSize(width: 720, height: 480)
+        window.collectionBehavior = [.managed, .moveToActiveSpace]
         window.center()
         window.contentView = NSHostingView(rootView: SettingsRootView())
         window.isReleasedWhenClosed = false
