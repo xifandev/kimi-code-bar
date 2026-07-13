@@ -218,39 +218,27 @@ enum MenuBarTextRenderer {
         return render(content)
     }
 
-    /// 前缀样式：K / Kimi 放在第一行左侧，第二行缩进对齐。
+    /// 前缀样式：K / Kimi 作为左侧大字号前缀，右侧上下两行百分比。
     private static func prefixImage(prefix: String, weekly: Int, fiveHour: Int) -> NSImage {
-        let prefixWidth: CGFloat = prefix == "K" ? 16 : 38
-        let totalWidth: CGFloat = 48 + prefixWidth + 4
+        let prefixWidth: CGFloat = prefix == "K" ? 18 : 40
+        let percentageWidth: CGFloat = 36
+        let totalWidth: CGFloat = prefixWidth + 6 + percentageWidth
 
-        let content = VStack(alignment: .trailing, spacing: -1) {
-            HStack(spacing: 2) {
-                Text(prefix)
-                    .font(.system(size: 14, weight: .bold, design: .default))
-                    .monospacedDigit()
-                    .frame(width: prefixWidth, height: 20, alignment: .leading)
-                Text("7D")
-                    .font(.system(size: 10, weight: .medium, design: .default))
-                    .monospacedDigit()
-                    .frame(width: 16, alignment: .leading)
+        let content = HStack(alignment: .center, spacing: 6) {
+            Text(prefix)
+                .font(.system(size: 20, weight: .bold, design: .default))
+                .monospacedDigit()
+                .frame(width: prefixWidth, height: 20, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 0) {
                 Text(percentageText(weekly))
                     .font(percentageFont(for: weekly))
                     .monospacedDigit()
-                    .frame(width: 30, alignment: .trailing)
-            }
-            HStack(spacing: 2) {
-                Text("")
-                    .font(.system(size: 10, weight: .bold, design: .default))
-                    .monospacedDigit()
-                    .frame(width: prefixWidth, alignment: .leading)
-                Text("5H")
-                    .font(.system(size: 10, weight: .medium, design: .default))
-                    .monospacedDigit()
-                    .frame(width: 16, alignment: .leading)
+                    .frame(width: percentageWidth, alignment: .trailing)
                 Text(percentageText(fiveHour))
                     .font(percentageFont(for: fiveHour))
                     .monospacedDigit()
-                    .frame(width: 30, alignment: .trailing)
+                    .frame(width: percentageWidth, alignment: .trailing)
             }
         }
         .foregroundStyle(textColor)
@@ -2365,12 +2353,7 @@ struct BasicSettingsView: View {
                         }
                     } header: {
                         Text("菜单栏样式")
-                    } footer: {
-                        Text("默认方案保留原有的 7D / 5H 紧凑样式，其他方案会在菜单栏显示更多信息。")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
                     }
-
                 }
                 .formStyle(.grouped)
             }
