@@ -3499,22 +3499,24 @@ struct SkillsSettingsView: View {
     private func skillPreview(_ skill: SkillInfo) -> some View {
         VStack(spacing: 14) {
             // 信息卡片
-            HStack(alignment: .top, spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.kimiBlue.opacity(0.14))
-                        .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.kimiBlue.opacity(0.14))
+                            .frame(width: 48, height: 48)
 
-                    Image(systemName: "puzzlepiece.extension")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.kimiBlue)
-                }
+                        Image(systemName: "puzzlepiece.extension")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.kimiBlue)
+                    }
 
-                VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(skill.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.kimiTextPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
                         if !skill.version.isEmpty {
                             Text("v\(skill.version)")
@@ -3524,43 +3526,46 @@ struct SkillsSettingsView: View {
                                 .padding(.vertical, 2)
                                 .background(Color.kimiBlue.opacity(0.12))
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .fixedSize()
                         }
                     }
+                    .layoutPriority(1)
 
-                    if !skill.description.isEmpty {
-                        Text(skill.description)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.kimiTextSecondary)
-                            .lineLimit(1)
-                    }
+                    Spacer(minLength: 8)
 
-                    Text(skill.path)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.kimiTextTertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-
-                Spacer(minLength: 8)
-
-                Button(action: { revealSkillInFinder(skill) }) {
-                    HStack(spacing: 4) {
+                    Button(action: { revealSkillInFinder(skill) }) {
                         Image(systemName: "folder")
-                            .font(.system(size: 11, weight: .medium))
-                        Text("在 Finder 中显示")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(isHoveredFinder ? .kimiTextPrimary : .kimiTextSecondary)
+                            .frame(width: 30, height: 30)
+                            .background(isHoveredFinder ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .foregroundStyle(isHoveredFinder ? .kimiTextPrimary : .kimiTextSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(isHoveredFinder ? Color.kimiTextPrimary.opacity(0.14) : Color.kimiTextPrimary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .buttonStyle(.plain)
+                    .help("在 Finder 中显示")
+                    .cursor(.pointingHand)
+                    .onHover { isHoveredFinder = $0 }
+                    .fixedSize()
                 }
-                .buttonStyle(.plain)
-                .cursor(.pointingHand)
-                .onHover { isHoveredFinder = $0 }
+
+                if !skill.description.isEmpty {
+                    Text(skill.description)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.kimiTextSecondary)
+                        .lineSpacing(2)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(skill.path)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.kimiTextTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
             }
             .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.kimiCardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
@@ -3643,6 +3648,9 @@ private struct SkillListItem: View {
                     Text(skill.name)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(isSelected ? .white : .kimiTextPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(0.5)
 
                     if !skill.version.isEmpty {
                         Text(skill.version)
@@ -3654,6 +3662,7 @@ private struct SkillListItem: View {
                                 (isSelected ? Color.white.opacity(0.25) : Color.kimiTextPrimary.opacity(0.08))
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .fixedSize()
                     }
                 }
 
