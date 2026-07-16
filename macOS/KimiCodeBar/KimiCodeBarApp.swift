@@ -2329,6 +2329,9 @@ final class SettingsWindowManager {
     private init() {}
 
     func show() {
+        // 菜单栏面板是高层级的 NSPanel 弹层，会压住设置窗口，打开设置前先关掉它
+        closeMenuBarPanel()
+
         if let window = window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -2358,6 +2361,13 @@ final class SettingsWindowManager {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// 关闭 MenuBarExtra 弹出的面板窗口（NSPanel 子类），设置窗口本身是普通 NSWindow，不受影响。
+    private func closeMenuBarPanel() {
+        for candidate in NSApp.windows where candidate is NSPanel {
+            candidate.close()
+        }
     }
 }
 
