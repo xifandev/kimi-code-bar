@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 import UserNotifications
 import Darwin
 
@@ -51,6 +52,39 @@ final class ThemeManager: ObservableObject {
     private init() {
         let rawValue = UserDefaults.standard.string(forKey: "appTheme") ?? ""
         theme = AppTheme(rawValue: rawValue) ?? .system
+    }
+}
+
+// MARK: - 开机自动启动
+
+/// 基于 SMAppService（macOS 13+ 官方推荐 API）管理登录项，
+/// 注册后 App 会在用户登录 macOS 时自动启动。
+@MainActor
+final class LaunchAtLoginManager: ObservableObject {
+    static let shared = LaunchAtLoginManager()
+
+    @Published private(set) var isEnabled: Bool
+
+    private init() {
+        isEnabled = SMAppService.mainApp.status == .enabled
+    }
+
+    /// 同步系统侧实际状态（用户可能在系统设置里手动改动了登录项）。
+    func refresh() {
+        isEnabled = SMAppService.mainApp.status == .enabled
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            // 注册 / 取消失败时保持原状，以系统实际状态为准
+        }
+        refresh()
     }
 }
 
@@ -2410,12 +2444,20 @@ enum APISettingField: Hashable {
 struct BasicSettingsView: View {
     @StateObject private var themeManager = ThemeManager.shared
     @StateObject private var model = KimiCodeBarModel.shared
+    @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
 
     @State private var editingKey = ""
     @State private var isEditingKey = false
     @State private var quotaIntervalText = "5"
     @State private var updateIntervalText = "30"
     @FocusState private var focusedField: APISettingField?
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLoginManager.isEnabled },
+            set: { launchAtLoginManager.setEnabled($0) }
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -2443,6 +2485,19 @@ struct BasicSettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 13)
+
+                // 启动
+                SettingsCard {
+                    SettingsCardRow(
+                        title: "开机自动启动",
+                        subtitle: "登录 macOS 后自动启动 KimiCodeBar"
+                    ) {
+                        Toggle("", isOn: launchAtLoginBinding)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .cursor(.pointingHand)
+                    }
+                }
 
                 // API Key
                 SettingsCard(title: "API Key") {
@@ -2604,6 +2659,7 @@ struct BasicSettingsView: View {
             isEditingKey = model.key.isEmpty
             quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
             updateIntervalText = intervalText(from: model.updateCheckInterval)
+            launchAtLoginManager.refresh()
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 focusedField = nil
