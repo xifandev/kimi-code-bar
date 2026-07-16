@@ -29,6 +29,12 @@
   <img src="Assets/panel-02.png"  height="400" alt="浅色模式">
 </p>
 
+### 🔐 一键授权登录
+
+Kimi 账号浏览器一键授权，免填 Token。凭证与 KimiCode CLI 互通，任一端登录即可，过期自动续期；也保留 API Key 登录方式，可在设置中自由切换。
+
+<img src="Assets/login.png" width="400" alt="Kimi 账号授权登录">
+
 ### ✨ 自动探测 KimiCode 更新
 
   <img src="Assets/newtip.png" width="400"  alt="更新提醒">
