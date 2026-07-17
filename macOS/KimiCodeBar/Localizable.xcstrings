@@ -352,28 +352,6 @@
         }
       }
     },
-    "使用简体中文界面" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use Simplified Chinese interface"
-          }
-        }
-      }
-    },
-    "使用英文界面" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use English interface"
-          }
-        }
-      }
-    },
     "保存" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1767,17 +1745,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Auto Refresh"
-          }
-        }
-      }
-    },
-    "自动匹配系统语言" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Match the system language"
           }
         }
       }

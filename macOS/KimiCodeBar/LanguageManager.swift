@@ -16,22 +16,6 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .en: return "English"
         }
     }
-
-    var subtitle: String {
-        switch self {
-        case .system: return LanguageManager.tr("自动匹配系统语言")
-        case .zhHans: return LanguageManager.tr("使用简体中文界面")
-        case .en: return LanguageManager.tr("使用英文界面")
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .system: return "globe"
-        case .zhHans: return "character.book.closed"
-        case .en: return "globe.americas"
-        }
-    }
 }
 
 // MARK: - 语言管理

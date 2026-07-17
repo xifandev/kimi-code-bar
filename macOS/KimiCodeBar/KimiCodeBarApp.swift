@@ -3169,21 +3169,18 @@ struct BasicSettingsView: View {
                 }
 
                 // 语言
-                SettingsCard(title: languageManager.tr("语言")) {
-                    HStack(spacing: 10) {
-                        ForEach(AppLanguage.allCases) { language in
-                            SettingsOptionCard(
-                                title: language.displayName,
-                                subtitle: language.subtitle,
-                                iconName: language.iconName,
-                                isSelected: languageManager.language == language
-                            ) {
-                                languageManager.language = language
+                SettingsCard {
+                    SettingsCardRow(title: languageManager.tr("语言")) {
+                        Picker("", selection: $languageManager.language) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(language.displayName).tag(language)
                             }
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 220)
+                        .cursor(.pointingHand)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 13)
                 }
 
                 // 启动
