@@ -21,6 +21,7 @@ struct BoosterWallet: Equatable {
     let isEnabled: Bool
     let currency: String
     let balanceYuan: Double
+    let monthlyChargeLimitEnabled: Bool
     let monthlyChargeLimitCents: Int
     let monthlyUsedCents: Int
     let topupLimitCents: Int
@@ -143,6 +144,7 @@ final class KimiCodeBarQuotaService {
                 }
                 let status: String?
                 let balance: Balance?
+                let monthlyChargeLimitEnabled: Bool?
                 let monthlyChargeLimit: Money?
                 let monthlyUsed: Money?
                 let topupLimit: Money?
@@ -208,6 +210,8 @@ final class KimiCodeBarQuotaService {
                 isEnabled: isEnabled,
                 currency: currency,
                 balanceYuan: balanceYuan,
+                // proto3 JSON 中 false 会被省略，缺省即未启用月度上限（网页端显示「无限制」）
+                monthlyChargeLimitEnabled: raw.monthlyChargeLimitEnabled ?? false,
                 monthlyChargeLimitCents: monthlyChargeLimitCents,
                 monthlyUsedCents: monthlyUsedCents,
                 topupLimitCents: Int(raw.topupLimit?.priceInCents ?? "0") ?? 0

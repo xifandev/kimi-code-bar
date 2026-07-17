@@ -1305,7 +1305,7 @@ struct BoosterWalletCard: View {
                             .frame(height: 3)
                             .foregroundStyle(Color.kimiTextPrimary.opacity(0.10))
 
-                        let progress = wallet.monthlyChargeLimitYuan > 0
+                        let progress = wallet.monthlyChargeLimitEnabled && wallet.monthlyChargeLimitYuan > 0
                             ? min(wallet.monthlyUsedYuan / wallet.monthlyChargeLimitYuan, 1.0)
                             : 0
                         Capsule()
@@ -1347,7 +1347,7 @@ struct BoosterWalletCard: View {
     }
 
     private func limitText(for wallet: BoosterWallet) -> String {
-        if wallet.monthlyChargeLimitCents <= 0 {
+        if !wallet.monthlyChargeLimitEnabled || wallet.monthlyChargeLimitCents <= 0 {
             return LanguageManager.tr("无限制")
         }
         return formatCurrency(wallet.monthlyChargeLimitYuan, currency: wallet.currency)
