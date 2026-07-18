@@ -33,3 +33,7 @@ fastlane/test_output
 *.ipa
 *.app.dSYM.zip
 *.app.zip
+
+# Windows
+Thumbs.db
+desktop.ini
