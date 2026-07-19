@@ -308,9 +308,7 @@
         padding: 0 0 40px;
         border-radius: 32px;
         border: 1px solid var(--border-strong);
-        background: radial-gradient(130% 140% at 85% 0%, rgba(59, 130, 245, 0.18) 0%, transparent 55%),
-          radial-gradient(120% 120% at 5% 100%, rgba(123, 97, 255, 0.12) 0%, transparent 55%),
-          linear-gradient(160deg, #121a2e 0%, #0c1222 55%, #070b15 100%);
+        background: radial-gradient(130% 140% at 85% 0%, rgba(59, 130, 245, 0.18) 0%, transparent 55%), radial-gradient(120% 120% at 5% 100%, rgba(123, 97, 255, 0.12) 0%, transparent 55%), linear-gradient(160deg, #121a2e 0%, #0c1222 55%, #070b15 100%);
         box-shadow:
           0 40px 100px rgba(0, 0, 0, 0.55),
           0 0 0 1px rgba(255, 255, 255, 0.04) inset,
@@ -323,13 +321,7 @@
         position: absolute;
         inset: 1px;
         border-radius: 31px;
-        background: linear-gradient(
-          135deg,
-          rgba(255, 255, 255, 0.06) 0%,
-          transparent 40%,
-          transparent 60%,
-          rgba(255, 255, 255, 0.03) 100%
-        );
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 40%, transparent 60%, rgba(255, 255, 255, 0.03) 100%);
         pointer-events: none;
       }
 
@@ -551,6 +543,15 @@
         height: 16px;
         margin: 16px auto 24px;
       }
+      /* hero 区标题下的分割线：稍窄于章节分隔，保持层级 */
+      .hero-divider {
+        max-width: 720px;
+        height: 14px;
+        margin: 14px auto 18px;
+      }
+      .hero-divider .sec-divider-glow {
+        width: 200px;
+      }
       /* features 节专属：标题与分割条紧凑衔接，避免大留白赶走用户 */
       #features .sec-head {
         margin-bottom: 0;
@@ -569,14 +570,7 @@
         right: 0;
         height: 1px;
         transform: translateY(-50%);
-        background: linear-gradient(
-          90deg,
-          transparent 0%,
-          rgba(91, 147, 255, 0.12) 18%,
-          rgba(91, 147, 255, 0.5) 50%,
-          rgba(91, 147, 255, 0.12) 82%,
-          transparent 100%
-        );
+        background: linear-gradient(90deg, transparent 0%, rgba(91, 147, 255, 0.12) 18%, rgba(91, 147, 255, 0.5) 50%, rgba(91, 147, 255, 0.12) 82%, transparent 100%);
       }
       .sec-divider-glow {
         position: absolute;
@@ -585,12 +579,7 @@
         width: 160px;
         height: 2px;
         transform: translate(-50%, -50%);
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--blue-2) 50%,
-          transparent
-        );
+        background: linear-gradient(90deg, transparent, var(--blue-2) 50%, transparent);
         filter: blur(3px);
         opacity: 0.85;
         border-radius: 2px;
@@ -2118,16 +2107,20 @@
     <!-- Hero -->
     <header class="hero" id="top">
       <div class="container">
-        <span class="pill reveal">
+        <!-- <span class="pill reveal">
           <span class="dot"></span>
-          <b>v1.1.0</b>&nbsp;·&nbsp;Github 开源&nbsp;·&nbsp;Kimi 社区版
-        </span>
+          <b>社区版</b>
+        </span> -->
         <h1 class="reveal">
           <!-- 菜单栏上的 -->
           ✨免费开源
           <br />
           <span class="grad">Kimi Code 用量仪表盘</span>
         </h1>
+        <div class="sec-divider hero-divider reveal" aria-hidden="true">
+          <span class="sec-divider-line"></span>
+          <span class="sec-divider-glow"></span>
+        </div>
         <p class="sub reveal">
           专为 <b>Kimi Code</b> 打造的菜单栏监控工具。<br />
           抬头即见，限额一目了然。
@@ -2163,7 +2156,10 @@
           <div class="hero-menubar">
             <div class="hero-menubar-left">
               <span class="hero-apple">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                </svg>
               </span>
             </div>
             <div class="hero-menubar-right">
@@ -2178,13 +2174,29 @@
                 </div>
               </div>
               <span class="hero-sys-icon" title="Wi-Fi">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                  <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                  <line x1="12" y1="20" x2="12.01" y2="20" />
+                </svg>
               </span>
               <span class="hero-sys-icon" title="电池">
-                <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="22" height="12" rx="3" stroke="currentColor" stroke-width="1" opacity="0.45"/><rect x="23.2" y="3.5" width="2" height="6" rx="0.8" fill="currentColor" opacity="0.45"/><rect x="2" y="2" width="18" height="9" rx="1.8" fill="currentColor"/></svg>
+                <svg width="26" height="13" viewBox="0 0 26 13" fill="none">
+                  <rect x="0.5" y="0.5" width="22" height="12" rx="3" stroke="currentColor" stroke-width="1" opacity="0.45" />
+                  <rect x="23.2" y="3.5" width="2" height="6" rx="0.8" fill="currentColor" opacity="0.45" />
+                  <rect x="2" y="2" width="18" height="9" rx="1.8" fill="currentColor" />
+                </svg>
               </span>
               <span class="hero-sys-icon" title="控制中心">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="11" y2="8"/><circle cx="14" cy="8" r="3" fill="currentColor" stroke="none"/><line x1="17" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="7" y2="16"/><circle cx="10" cy="16" r="3"/><line x1="13" y1="16" x2="21" y2="16"/></svg>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="3" y1="8" x2="11" y2="8" />
+                  <circle cx="14" cy="8" r="3" fill="currentColor" stroke="none" />
+                  <line x1="17" y1="8" x2="21" y2="8" />
+                  <line x1="3" y1="16" x2="7" y2="16" />
+                  <circle cx="10" cy="16" r="3" />
+                  <line x1="13" y1="16" x2="21" y2="16" />
+                </svg>
               </span>
               <span class="hero-clock" id="mockClock"></span>
             </div>
@@ -2211,7 +2223,6 @@
         </div>
       </div>
     </section>
-
 
     <!-- Kimi 一键登录 -->
     <section id="login">
@@ -2251,7 +2262,10 @@
               <div class="login-auth-status">
                 <div class="login-auth-info">
                   <div class="login-auth-main">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
                     已授权 Kimi 账号
                   </div>
                   <div class="login-auth-sub">凭证有效期至 07-19 17:04，到期自动续期</div>
@@ -2310,7 +2324,7 @@
                   </div>
                 </div>
                 <div class="perf-memory-bar">
-                  <div class="perf-memory-used" style="--p:4%"></div>
+                  <div class="perf-memory-used" style="--p: 4%"></div>
                 </div>
                 <div class="perf-process-list">
                   <div class="perf-process">
