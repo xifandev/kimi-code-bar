@@ -2075,9 +2075,9 @@
 
       /* ============ Hero 循环演示 ============
          时序（10s 一轮）：
-         0–15%   镜头以 7D/5H 标签为中心推近：菜单栏整体放大（仿 Mac 桌面盒子保持不动）
+         0–15%   镜头以 7D/5H 标签为中心推近：整个 hero-shot 区域被放大（外层页面的其他部分保持不动）
          15–28%  定格放大
-         28–42%  镜头拉回，菜单栏恢复原尺寸
+         28–42%  镜头拉回，hero-shot 恢复原尺寸
          42–50%  正常视图短暂停留
          50–58%  鼠标从右下角飞向 7D/5H 芯片
          58–63%  点击（波纹扩散 + 芯片高亮）
@@ -2088,22 +2088,19 @@
          96–100% 短暂停留后无缝循环
       */
       .hero-shot.demo-loop {
-        /* 外层盒子的边框 / 圆角 / 阴影保持原样不动；
-           overflow 改 visible，让 menubar 放大时能溢出到 hero-shot 之外（Apple 图标 / 右侧图标被"镜头推开"） */
+        /* 整个 hero-shot（包括边框 / 圆角 / 阴影 / 背景 / 内部内容）作为"镜头下的场景"被放大；
+           transform-origin 对准 7D/5H 标签中心（Playwright 实测 46% / 4%），
+           所以放大时 widget 位置不动，hero-shot 其他内容向四周"被推开"；
+           overflow 改 visible，让放大的 hero-shot 能溢出到外层（不被父级裁切）。
+           box-shadow / border / background 跟着 scale——这跟 Cursor 视频里"整个窗口被镜头推近"的效果一致。 */
         overflow: visible;
-      }
-
-      /* 菜单栏：作为"镜头下的场景"整体放大；
-         镜头中心对准 7D/5H 标签中心（约在菜单栏 46% / 50% 处），
-         所以放大时 widget 自身位置不变，Apple 图标被推左、WiFi/电池/控制中心/时钟被推右。 */
-      .hero-shot.demo-loop .hero-menubar {
-        z-index: 5;
-        transform-origin: 46% 50%;
-        animation: demo-menubar-zoom 10s ease-in-out infinite;
+        transform-origin: 46% 4%;
+        animation: demo-shot-zoom 10s ease-in-out infinite;
         will-change: transform;
+        z-index: 5;
       }
 
-      @keyframes demo-menubar-zoom {
+      @keyframes demo-shot-zoom {
         0%,
         5% {
           transform: scale(1);
