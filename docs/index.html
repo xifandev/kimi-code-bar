@@ -1,1520 +1,2409 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KimiCodeBar — 菜单栏上的 Kimi Code 用量监控</title>
-<meta name="description" content="KimiCodeBar 是专为 Kimi Code 打造的 macOS 菜单栏用量监控工具：本周限额、5 小时用量、加油包余额，抬头即见。开源免费，数据仅存本地。">
-<meta property="og:title" content="KimiCodeBar — 菜单栏上的 Kimi Code 用量监控">
-<meta property="og:description" content="专为 Kimi Code 打造的 macOS 菜单栏用量监控工具，限额一目了然。">
-<meta property="og:image" content="assets/panel-01.png">
-<meta property="og:type" content="website">
-<link rel="icon" href="assets/logo.gif" type="image/gif">
-<script defer
-  src="https://vibeloft.ai/telemetry/v1.js"
-  data-vl-product-id="397f5da7-5855-4c69-aa89-cefb41c28289"
-  data-vl-auth-key="vl_web.UtD6htRCuR-m-B3wW-y34fP3-Sou3L-VjP2sVTdcKbU"
-></script>
-<style>
-  :root {
-    --bg: #06090F;
-    --bg-soft: #0B111D;
-    --card: rgba(255, 255, 255, .035);
-    --card-hover: rgba(255, 255, 255, .06);
-    --border: rgba(255, 255, 255, .09);
-    --border-strong: rgba(255, 255, 255, .16);
-    --text: #EDF1F8;
-    --text-2: #98A2B8;
-    --text-3: #5C6679;
-    --blue: #2D75F6;
-    --blue-2: #5B93FF;
-    --blue-glow: rgba(45, 117, 246, .35);
-    --orange: #F5A623;
-    --radius: 20px;
-    --nav-h: 60px;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
-                 "Helvetica Neue", "Microsoft YaHei", "Segoe UI", sans-serif;
-    font-size: 16px;
-    line-height: 1.7;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
-
-  /* 全局氛围光 */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(900px 500px at 75% -5%, rgba(45, 117, 246, .14), transparent 60%),
-      radial-gradient(700px 420px at 8% 18%, rgba(91, 147, 255, .07), transparent 60%),
-      radial-gradient(800px 500px at 50% 105%, rgba(45, 117, 246, .08), transparent 60%);
-    pointer-events: none;
-  }
-
-  ::selection { background: rgba(45, 117, 246, .4); }
-
-  ::-webkit-scrollbar { width: 10px; }
-  ::-webkit-scrollbar-thumb { background: #232B3D; border-radius: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-
-  a { color: inherit; text-decoration: none; }
-  a:focus-visible, button:focus-visible {
-    outline: 2px solid var(--blue-2);
-    outline-offset: 3px;
-    border-radius: 6px;
-  }
-
-  .container {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ============ 导航 ============ */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    height: var(--nav-h);
-    background: rgba(6, 9, 15, .72);
-    backdrop-filter: blur(18px) saturate(1.4);
-    -webkit-backdrop-filter: blur(18px) saturate(1.4);
-    border-bottom: 1px solid rgba(255, 255, 255, .06);
-  }
-
-  .nav-inner {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 24px;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 28px;
-  }
-
-  .nav-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 16px;
-    letter-spacing: .2px;
-  }
-
-  .nav-brand img { width: 26px; height: 22px; border-radius: 6px; }
-
-  .nav-links {
-    display: flex;
-    gap: 24px;
-    margin-left: auto;
-    font-size: 14px;
-    color: var(--text-2);
-  }
-
-  .nav-links a { transition: color .2s; }
-  .nav-links a:hover { color: var(--text); }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 20px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: transform .18s, box-shadow .18s, background .18s, border-color .18s;
-    white-space: nowrap;
-  }
-
-  .btn-primary {
-    background: var(--blue);
-    color: #fff;
-    box-shadow: 0 4px 18px rgba(45, 117, 246, .35);
-  }
-
-  .btn-primary:hover {
-    background: #3D82FF;
-    transform: translateY(-1px);
-    box-shadow: 0 8px 26px rgba(45, 117, 246, .45);
-  }
-
-  .btn-ghost {
-    background: var(--card);
-    border-color: var(--border);
-    color: var(--text);
-  }
-
-  .btn-ghost:hover {
-    background: var(--card-hover);
-    border-color: var(--border-strong);
-    transform: translateY(-1px);
-  }
-
-  .btn-sm { padding: 6px 15px; border-radius: 10px; font-size: 13px; }
-
-  .btn-lg { padding: 14px 30px; border-radius: 14px; font-size: 16px; }
-
-  /* ============ Hero ============ */
-  .hero {
-    padding: calc(var(--nav-h) + 84px) 0 40px;
-    text-align: center;
-  }
-
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    font-size: 13px;
-    color: var(--text-2);
-  }
-
-  .pill .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--blue-2);
-    box-shadow: 0 0 8px var(--blue-2);
-  }
-
-  .pill b { color: var(--text); font-weight: 600; }
-
-  .hero h1 {
-    margin-top: 26px;
-    font-size: clamp(40px, 7vw, 68px);
-    font-weight: 800;
-    letter-spacing: -1.5px;
-    line-height: 1.12;
-  }
-
-  .hero h1 .grad {
-    background: linear-gradient(115deg, #7FB0FF 0%, var(--blue) 55%, #1E56C8 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .hero .sub {
-    margin: 20px auto 0;
-    max-width: 560px;
-    font-size: 18px;
-    color: var(--text-2);
-  }
-
-  .hero .sub b { color: var(--text); font-weight: 600; }
-
-  .hero-tag {
-    margin-top: 24px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: .3px;
-  }
-
-  .hero-tag + h1 { margin-top: 16px; }
-
-  .cta-row {
-    margin-top: 36px;
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-
-  .hero-note {
-    margin-top: 16px;
-    font-size: 13px;
-    color: var(--text-3);
-  }
-
-  /* ============ 桌面产品图 ============ */
-  .shot-wrap { padding: 64px 0 20px; }
-
-  .screen {
-    position: relative;
-    border-radius: 24px;
-    border: 1px solid var(--border-strong);
-    overflow: hidden;
-    aspect-ratio: 16 / 10;
-    background:
-      radial-gradient(120% 130% at 85% 0%, #27335C 0%, transparent 55%),
-      radial-gradient(110% 120% at 5% 100%, #14224A 0%, transparent 55%),
-      linear-gradient(160deg, #101830 0%, #0A0F1E 60%, #070B15 100%);
-    box-shadow:
-      0 40px 90px rgba(0, 0, 0, .55),
-      0 0 0 1px rgba(255, 255, 255, .04) inset,
-      0 0 120px rgba(45, 117, 246, .1);
-  }
-
-  /* 模拟 macOS 菜单栏 */
-  .mockbar {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 34px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    font-size: 12px;
-    background: rgba(16, 21, 35, .55);
-    backdrop-filter: blur(20px) saturate(1.5);
-    -webkit-backdrop-filter: blur(20px) saturate(1.5);
-    border-bottom: 1px solid rgba(255, 255, 255, .07);
-    color: rgba(255, 255, 255, .92);
-    user-select: none;
-  }
-
-  .mockbar .apple { font-size: 14px; margin-right: 18px; transform: translateY(-.5px); }
-  .mockbar .app-name { font-weight: 700; margin-right: 18px; }
-  .mockbar .menu { margin-right: 16px; color: rgba(255, 255, 255, .75); }
-
-  .mockbar .right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  /* 菜单栏小组件：7D / 5H */
-  .widget {
-    display: flex;
-    gap: 7px;
-    font-size: 8.5px;
-    font-weight: 700;
-    line-height: 1.25;
-    letter-spacing: .2px;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, .1);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
-  }
-
-  .widget .row { display: flex; flex-direction: column; }
-  .widget .k { color: rgba(255, 255, 255, .62); }
-  .widget .v { color: #fff; }
-
-  .widget .pair { display: flex; gap: 3px; }
-  .widget .pair span:first-child { color: rgba(255, 255, 255, .62); }
-
-  .mockbar .clock { color: rgba(255, 255, 255, .85); font-variant-numeric: tabular-nums; }
-
-  /* 悬浮面板截图/复刻 */
-  .panel-float {
-    position: absolute;
-    top: 46px;
-    right: 26px;
-    width: min(300px, 34%);
-    animation: floaty 7s ease-in-out infinite;
-  }
-
-  .panel-float .kp,
-  .panel-float img {
-    border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, .14);
-    box-shadow:
-      0 30px 70px rgba(0, 0, 0, .6),
-      0 0 60px rgba(45, 117, 246, .18);
-  }
-
-  .panel-float img { display: block; width: 100%; height: auto; }
-
-  @keyframes floaty {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-9px); }
-  }
-
-  /* 模拟 Dock */
-  .dock {
-    position: absolute;
-    left: 50%;
-    bottom: 14px;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, .08);
-    border: 1px solid rgba(255, 255, 255, .12);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  .dock i {
-    width: 34px; height: 34px;
-    border-radius: 9px;
-    background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.06));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
-  }
-
-  .dock i.kb {
-    background: var(--blue) url(assets/logo.gif) center / 80% no-repeat;
-    box-shadow: 0 4px 14px rgba(45, 117, 246, .5);
-  }
-
-  /* ============ 通用 Section ============ */
-  section { padding: 96px 0; }
-
-  .sec-head { text-align: center; margin-bottom: 56px; }
-
-  .sec-tag {
-    display: inline-block;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    color: var(--blue-2);
-    text-transform: uppercase;
-    margin-bottom: 14px;
-  }
-
-  .sec-head h2 {
-    font-size: clamp(28px, 4vw, 40px);
-    font-weight: 800;
-    letter-spacing: -.8px;
-  }
-
-  .sec-head p {
-    margin: 14px auto 0;
-    max-width: 520px;
-    color: var(--text-2);
-  }
-
-  /* ============ 功能特性 ============ */
-  .features {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 26px 24px;
-    transition: transform .25s, border-color .25s, background .25s;
-  }
-
-  .card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(45, 117, 246, .45);
-    background: var(--card-hover);
-  }
-
-  .card-highlight {
-    border-color: rgba(45, 117, 246, .35);
-    background: rgba(45, 117, 246, .06);
-  }
-
-  .card-highlight:hover {
-    border-color: rgba(45, 117, 246, .55);
-    background: rgba(45, 117, 246, .09);
-  }
-
-  .card .icon {
-    width: 42px; height: 42px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(45, 117, 246, .14);
-    border: 1px solid rgba(45, 117, 246, .3);
-    color: var(--blue-2);
-    margin-bottom: 18px;
-  }
-
-  .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
-  .card p { font-size: 14px; color: var(--text-2); line-height: 1.75; }
-
-  /* ============ 双主题预览 ============ */
-  .duo {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 28px;
-    max-width: 860px;
-    margin: 0 auto;
-    justify-items: center;
-  }
-
-  .duo figure {
-    width: fit-content;
-    border-radius: 24px;
-    overflow: hidden;
-    border: 1px solid var(--border-strong);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
-    transition: transform .3s, box-shadow .3s;
-  }
-
-  .duo figure:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 34px 80px rgba(0, 0, 0, .6), 0 0 60px rgba(45, 117, 246, .12);
-  }
-
-  .duo img { display: block; width: 100%; height: auto; }
-
-  .duo figcaption {
-    padding: 14px;
-    text-align: center;
-    font-size: 14px;
-    color: var(--text-2);
-    background: var(--bg-soft);
-    border-top: 1px solid var(--border);
-  }
-
-  .duo figcaption b { color: var(--text); }
-
-  /* ============ 更新探测 ============ */
-  .split {
-    display: grid;
-    grid-template-columns: 1fr 1.15fr;
-    gap: 56px;
-    align-items: center;
-  }
-
-  .split h2 {
-    font-size: clamp(26px, 3.6vw, 36px);
-    font-weight: 800;
-    letter-spacing: -.6px;
-    margin-bottom: 16px;
-  }
-
-  .split .desc { color: var(--text-2); margin-bottom: 26px; }
-
-  .check-list { list-style: none; }
-  .check-list li {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    margin-bottom: 14px;
-    font-size: 15px;
-    color: var(--text-2);
-  }
-
-  .check-list li b { color: var(--text); font-weight: 600; }
-
-  .check-list svg {
-    flex: none;
-    margin-top: 4px;
-    color: var(--blue-2);
-  }
-
-  .update-visual { position: relative; }
-
-  .update-visual .dialog {
-    border-radius: 20px;
-    overflow: hidden;
-    border: 1px solid var(--border-strong);
-    box-shadow: 0 30px 70px rgba(0, 0, 0, .55);
-  }
-
-  .update-visual .dialog img { display: block; width: 100%; }
-
-  .update-visual .notify {
-    position: absolute;
-    top: -26px;
-    right: -14px;
-    width: 62%;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border-strong);
-    box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
-    animation: floaty 6s ease-in-out infinite;
-  }
-
-  .update-visual .notify img { display: block; width: 100%; }
-
-  /* ============ 隐私安全 ============ */
-  .privacy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-
-  .privacy .card { text-align: center; padding: 34px 24px; }
-  .privacy .card .icon { margin: 0 auto 18px; }
-
-  /* ============ 平台 ============ */
-  .platforms { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 760px; margin: 0 auto; }
-
-  .platform {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 26px 28px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--card);
-  }
-
-  .platform .icon {
-    width: 48px; height: 48px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, .06);
-    border: 1px solid var(--border);
-    color: var(--text);
-    flex: none;
-  }
-
-  .platform h3 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-
-  .tag {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 999px;
-  }
-
-  .tag-ok { background: rgba(52, 199, 123, .15); color: #4ADE90; border: 1px solid rgba(52, 199, 123, .35); }
-  .tag-wip { background: rgba(245, 166, 35, .12); color: var(--orange); border: 1px solid rgba(245, 166, 35, .3); }
-
-  .platform p { font-size: 13px; color: var(--text-3); margin-top: 2px; }
-
-  .platform.soon { opacity: .65; }
-
-  /* ============ 下载 CTA ============ */
-  .cta-final { text-align: center; }
-
-  .cta-final img.logo {
-    width: 76px;
-    border-radius: 20px;
-    box-shadow: 0 16px 44px rgba(45, 117, 246, .4);
-    margin-bottom: 26px;
-  }
-
-  .cta-final h2 {
-    font-size: clamp(30px, 4.4vw, 44px);
-    font-weight: 800;
-    letter-spacing: -1px;
-  }
-
-  .cta-final p { color: var(--text-2); margin: 14px 0 32px; }
-
-  /* ============ 页脚 ============ */
-  footer {
-    border-top: 1px solid rgba(255, 255, 255, .06);
-    padding: 44px 0 52px;
-    color: var(--text-3);
-    font-size: 13px;
-  }
-
-  .foot-inner {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    flex-wrap: wrap;
-  }
-
-  .foot-links { display: flex; gap: 20px; margin-left: auto; }
-  .foot-links a { color: var(--text-2); transition: color .2s; }
-  .foot-links a:hover { color: var(--text); }
-
-  .foot-note { width: 100%; margin-top: 14px; line-height: 1.8; }
-
-  /* ============ KimiPanel 实时复刻（依据最新 SwiftUI 源码） ============ */
-  .kp {
-    /* 设计令牌：与 KimiCodeBarApp.swift 中一致 */
-    --p1: #FFFFFF;                       /* kimiTextPrimary (dark) */
-    --p2: rgba(255, 255, 255, .55);      /* kimiTextSecondary */
-    --p3: rgba(255, 255, 255, .40);      /* kimiTextTertiary */
-    --card: #1C2436;                     /* kimiCardBackground */
-    --track: rgba(255, 255, 255, .10);
-    --btn: rgba(255, 255, 255, .06);
-    --btn-h: rgba(255, 255, 255, .10);
-    --act-bg: rgba(255, 255, 255, .10);
-    --act-border: rgba(255, 255, 255, .14);
-    --overlay: rgba(255, 255, 255, .06);
-    --line: rgba(255, 255, 255, .20);
-    --line-h: rgba(255, 255, 255, .40);
-    --eye: #181817;
-    --ring: rgba(255, 255, 255, .7);
-    --green: #32D74B;
-    --orange: #FF9F0A;
-    --blue: #3B82F5;                     /* kimiBlue */
-    width: 100%;
-    max-width: 340px;
-    background: #0F1421;                 /* kimiPanelBackground */
-    border-radius: 20px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    color: var(--p1);
-    font-size: 13px;
-    line-height: 1.4;
-    text-align: left;
-    user-select: none;
-  }
-
-  .kp-light {
-    --p1: #1F1F1F;
-    --p2: #595959;
-    --p3: #808080;
-    --card: rgba(255, 255, 255, .9);
-    --track: rgba(0, 0, 0, .10);
-    --btn: rgba(0, 0, 0, .05);
-    --btn-h: rgba(0, 0, 0, .09);
-    --act-bg: rgba(0, 0, 0, .07);
-    --act-border: rgba(0, 0, 0, .11);
-    --overlay: rgba(0, 0, 0, .05);
-    --line: rgba(0, 0, 0, .18);
-    --line-h: rgba(0, 0, 0, .38);
-    --eye: #FFFFFF;
-    --ring: rgba(0, 0, 0, .55);
-    --green: #34C759;
-    --orange: #FF9500;
-    background: rgba(240, 241, 246, .96);
-  }
-
-  .kp button {
-    font: inherit;
-    color: inherit;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-
-  /* --- Header --- */
-  .kp-header { display: flex; align-items: center; gap: 12px; }
-
-  /* Logo：44x30.25，蓝色圆角身体 + 两只眼睛（scale = 44/32） */
-  .kp-logo { position: relative; width: 44px; height: 30px; flex: none; }
-
-  .kp-logo-body {
-    position: absolute;
-    inset: 1.4px;
-    border-radius: 8.2px;
-    background: var(--blue);
-    box-shadow: 0 2px 8px rgba(59, 130, 245, .45);
-  }
-
-  .kp-eyes {
-    position: absolute;
-    inset: 0;
-    transition: transform .3s ease-in-out;
-  }
-
-  .kp-eyes i {
-    position: absolute;
-    top: 9.6px;
-    width: 3.85px;
-    height: 11px;
-    border-radius: 1.9px;
-    background: var(--eye);
-    transform-origin: 50% 50%;
-    animation: kp-blink 3s infinite;
-  }
-
-  .kp-eyes i:first-child { left: 16.2px; }
-  .kp-eyes i:last-child { left: 23.9px; }
-
-  /* 眨眼：闭眼 0.08s → 停留 0.04s → 睁眼 0.08s，每 3s 一次 */
-  @keyframes kp-blink {
-    0%, 2.6% { transform: scaleY(1); }
-    4% { transform: scaleY(.12); }
-    6.7%, 100% { transform: scaleY(1); }
-  }
-
-  .kp-title { font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
-
-  .kp-community {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    color: var(--p2);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color .15s, border-color .15s, background .15s;
-  }
-
-  .kp-community:hover {
-    color: var(--p1);
-    border-color: var(--line-h);
-    background: var(--btn-h);
-  }
-
-  /* --- 卡片通用 --- */
-  .kp-cards { display: flex; flex-direction: column; gap: 12px; }
-
-  .kp-card {
-    background: var(--card);
-    border-radius: 14px;
-    padding: 14px;
-  }
-
-  /* --- 用量卡片 --- */
-  .kp-quota-row { display: flex; gap: 12px; }
-
-  .kp-quota {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .kp-quota-title { font-size: 13px; font-weight: 500; color: var(--p1); }
-
-  .kp-value {
-    height: 38px;
-    display: flex;
-    align-items: center;
-  }
-
-  .kp-num {
-    font-family: ui-rounded, "SF Pro Rounded", -apple-system, "PingFang SC", sans-serif;
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: -.5px;
-    font-variant-numeric: tabular-nums;
-    color: var(--p1);
-  }
-
-  .kp-loading .kp-num { display: none; }
-
-  .kp-ring {
-    display: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2.5px solid transparent;
-    border-top-color: var(--ring);
-    border-right-color: var(--ring);
-    animation: kp-spin 1s linear infinite;
-  }
-
-  .kp-loading .kp-ring { display: block; }
-
-  @keyframes kp-spin { to { transform: rotate(360deg); } }
-
-  .kp-bar {
-    width: 100%;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--track);
-    overflow: hidden;
-  }
-
-  .kp-bar i {
-    display: block;
-    height: 100%;
-    width: 0;
-    border-radius: 999px;
-    background: var(--c, var(--blue));
-    box-shadow: 0 1px 3px var(--c-glow, rgba(59, 130, 245, .4));
-    animation: kp-grow 1.2s cubic-bezier(.22, 1, .36, 1) .35s forwards;
-  }
-
-  @keyframes kp-grow { to { width: var(--p); } }
-
-  .kp-reset { font-size: 11px; color: var(--p2); }
-
-  /* --- 加油包卡片 --- */
-  .kp-wallet { border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-
-  .kp-row { display: flex; align-items: center; gap: 8px; }
-
-  .kp-label { font-size: 12px; font-weight: 500; color: var(--p1); }
-
-  .kp-badge {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: var(--p3);
-    background: var(--overlay);
-  }
-
-  .kp-badge.green { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
-  .kp-badge.red { color: #FF453A; background: rgba(255, 69, 58, .12); }
-  .kp-badge.orange { color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, transparent); }
-
-  .kp-spacer { flex: 1; }
-
-  .kp-balance-row { display: flex; align-items: baseline; gap: 12px; height: 28px; }
-
-  .kp-balance {
-    font-family: ui-rounded, "SF Pro Rounded", -apple-system, "PingFang SC", sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--p3);                    /* 未启用 → tertiary */
-  }
-
-  .kp-loading .kp-balance { display: none; }
-
-  .kp-spend { margin-left: auto; font-size: 11px; color: var(--p2); font-variant-numeric: tabular-nums; }
-  .kp-spend b { color: var(--p1); font-weight: 500; }
-
-  .kp-bar.thin { height: 3px; }
-  .kp-bar.thin i { box-shadow: none; animation: none; }
-
-  /* --- Kimi Web 卡片 --- */
-  .kp-server { border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-
-  .kp-server-title { font-size: 13px; font-weight: 600; color: var(--p1); }
-
-  .kp-version { font-size: 12px; font-weight: 500; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--p2); }
-
-  .kp-server-btns { display: flex; gap: 8px; }
-
-  .kp-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 10px 0;
-    border-radius: 10px;
-    background: var(--act-bg);
-    border: 1px solid var(--act-border);
-    color: var(--p2);
-    font-size: 13px;
-    font-weight: 500;
-    transition: color .15s, background .15s;
-  }
-
-  .kp-btn:hover { background: var(--btn-h); color: var(--p2); }
-
-  .kp-btn.wide { flex: none; width: 42%; }
-
-  .kp-btn.disabled, .kp-btn.disabled:hover {
-    color: var(--p3);
-    background: var(--btn);
-    cursor: default;
-    pointer-events: none;
-  }
-
-  .kp-btn .kp-ring { width: 14px; height: 14px; border-width: 2px; }
-  .kp-btn.loading .kp-ring { display: block; }
-  .kp-btn.loading .kp-btn-label, .kp-btn.loading svg { display: none; }
-
-  /* --- 操作按钮 --- */
-  .kp-actions { display: flex; gap: 8px; }
-
-  .kp-act {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 0;
-    border-radius: 10px;
-    background: var(--act-bg);
-    border: 1px solid var(--act-border);
-    color: var(--p2);
-    font-size: 11px;
-    font-weight: 500;
-    transition: color .15s, background .15s;
-    text-decoration: none;
-  }
-
-  button.kp-act { cursor: default; }
-
-  .kp-act:hover { background: var(--btn-h); color: var(--p2); }
-
-  .kp-act .kp-kimi {
-    font-size: 14px;
-    font-weight: 700;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    letter-spacing: .5px;
-  }
-
-  .kp-act svg { width: 16px; height: 16px; }
-
-  .kp-loading [data-kp-action="refresh"] svg { animation: kp-spin 1s linear infinite; }
-
-  /* --- CLI 版本条 --- */
-  .kp-cli {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    background: var(--card);
-    color: var(--p3);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background .15s;
-    position: relative;
-  }
-
-  .kp-cli:hover::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 12px;
-    background: var(--overlay);
-  }
-
-  .kp-cli .kp-version { font-size: 12px; }
-
-  .kp-badge-new {
-    font-size: 9px;
-    font-weight: 500;
-    padding: 1px 5px;
-    border-radius: 4px;
-    color: var(--orange);
-    background: color-mix(in srgb, var(--orange) 12%, transparent);
-  }
-
-  .kp-chevron { color: var(--p3); display: flex; }
-  .kp-cli:hover .kp-chevron { color: var(--p2); }
-
-  /* --- 复刻标识 pill --- */
-  .live-pill {
-    position: absolute;
-    top: -11px;
-    left: 18px;
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 11px;
-    border-radius: 999px;
-    background: #101827;
-    border: 1px solid rgba(50, 215, 75, .4);
-    color: #4ADE90;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .3px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .5);
-  }
-
-  .live-pill i {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #4ADE90;
-    box-shadow: 0 0 8px #4ADE90;
-    animation: kp-pulse 1.6s ease-in-out infinite;
-  }
-
-  @keyframes kp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-
-  .kp-scale { transform-origin: top right; }
-
-  .duo .kp { margin: 0 auto; max-width: 380px; }
-
-  /* 复刻面板在 hero 中的缩放适配 */
-  @media (max-width: 960px) {
-    .kp-scale { transform: scale(.8); }
-  }
-
-  .showcase-note {
-    margin: 30px auto 0;
-    max-width: 560px;
-    text-align: center;
-    font-size: 14px;
-    color: var(--text-2);
-  }
-
-  .showcase-note b { color: var(--blue-2); font-weight: 600; }
-
-  /* ============ Kimi 一键登录 ============ */
-  .login-visual {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    align-items: center;
-  }
-
-  .login-panel-mask {
-    position: relative;
-    width: 100%;
-    max-width: 360px;
-  }
-
-  .login-panel-mask .kp {
-    margin: 0 auto;
-    max-width: 360px;
-  }
-
-  .login-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    border-radius: 20px;
-    background: rgba(6, 9, 15, .78);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    text-align: center;
-    color: var(--text);
-  }
-
-  .login-overlay .login-icon { font-size: 28px; line-height: 1; }
-
-  .login-overlay .login-title {
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .login-overlay .login-btn {
-    margin-top: 4px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    background: var(--blue);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    box-shadow: 0 4px 14px rgba(45, 117, 246, .4);
-  }
-
-  .login-status-card {
-    width: 100%;
-    max-width: 360px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text-2);
-    font-size: 13px;
-  }
-
-  .login-status-card b { color: var(--text); font-weight: 600; }
-
-  .login-status-card .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #4ADE90;
-    box-shadow: 0 0 8px #4ADE90;
-  }
-
-  /* ============ 滚动入场 ============ */
-  .reveal {
-    opacity: 0;
-    transform: translateY(26px);
-    transition: opacity .7s ease, transform .7s ease;
-  }
-
-  .reveal.in { opacity: 1; transform: none; }
-
-  /* ============ 响应式 ============ */
-  @media (max-width: 960px) {
-    .features { grid-template-columns: 1fr 1fr; }
-    .privacy { grid-template-columns: 1fr; }
-    .split { grid-template-columns: 1fr; gap: 40px; }
-    .update-visual { max-width: 560px; }
-  }
-
-  @media (max-width: 640px) {
-    section { padding: 72px 0; }
-    .nav-links { display: none; }
-    .hero h1 { font-size: 34px; letter-spacing: -1px; }
-    .hero .sub { font-size: 16px; }
-    .features { grid-template-columns: 1fr; }
-    .duo { grid-template-columns: 1fr; max-width: 380px; }
-    .platforms { grid-template-columns: 1fr; }
-    .mockbar .menu { display: none; }
-    .panel-float { display: none; }
-    .dock i { width: 26px; height: 26px; border-radius: 7px; }
-    .update-visual .notify { right: -4px; }
-    .screen { aspect-ratio: 4 / 3; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: .01ms !important;
-      transition-duration: .01ms !important;
-    }
-    html { scroll-behavior: auto; }
-  }
-</style>
-</head>
-<body>
-
-<!-- 导航 -->
-<nav>
-  <div class="nav-inner">
-    <a class="nav-brand" href="#top">
-      <img src="assets/logo.gif" alt="KimiCodeBar Logo">
-      KimiCodeBar
-    </a>
-    <div class="nav-links">
-      <a href="#features">功能</a>
-      <a href="#showcase">预览</a>
-      <a href="#login">一键登录</a>
-      <a href="#update">更新探测</a>
-      <a href="#privacy">隐私</a>
-      <a href="https://github.com/xifandev/KimiCodeBar" target="_blank" rel="noopener">GitHub</a>
-    </div>
-    <a class="btn btn-primary btn-sm" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
-      下载
-    </a>
-  </div>
-</nav>
-
-<!-- Hero -->
-<header class="hero" id="top">
-  <div class="container">
-    <span class="pill reveal">
-      <span class="dot"></span>
-      <b>v1.1.0</b>&nbsp;·&nbsp;macOS&nbsp;·&nbsp;MIT 开源&nbsp;·&nbsp;Kimi 社区版
-    </span>
-    <p class="hero-tag reveal">专为 Kimi Code 打造的 macOS 菜单栏监控工具</p>
-    <h1 class="reveal">
-      抬头即见，<br><span class="grad">限额一目了然</span>
-    </h1>
-    <div class="cta-row reveal">
-      <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        下载 macOS 版
-      </a>
-      <a class="btn btn-ghost btn-lg" href="https://github.com/xifandev/KimiCodeBar" target="_blank" rel="noopener">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
-        GitHub
-      </a>
-    </div>
-    <p class="hero-note reveal">通过 GitHub Releases 免费分发 · 数据仅存储在本地</p>
-  </div>
-
-  <!-- 桌面产品图 -->
-  <div class="container shot-wrap reveal">
-    <div class="screen">
-      <!-- 模拟菜单栏 -->
-      <div class="mockbar">
-        <span class="apple"></span>
-        <span class="app-name">KimiCodeBar</span>
-        <span class="menu">控制台</span>
-        <span class="menu">设置</span>
-        <span class="menu">帮助</span>
-        <div class="right">
-          <div class="widget" title="本周用量 84% · 5 小时用量 6%">
-            <div class="row">
-              <div class="pair"><span>7D</span><span class="v">84%</span></div>
-              <div class="pair"><span>5H</span><span class="v">6%</span></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KimiCodeBar — 菜单栏上的 Kimi Code 用量监控</title>
+    <meta name="description" content="KimiCodeBar 是专为 Kimi Code 打造的菜单栏用量监控工具：本周限额、5 小时用量、加油包余额，抬头即见。开源免费，数据仅存本地。" />
+    <meta property="og:title" content="KimiCodeBar — 菜单栏上的 Kimi Code 用量监控" />
+    <meta property="og:description" content="专为 Kimi Code 打造的菜单栏用量监控工具，限额一目了然。" />
+    <meta property="og:image" content="assets/panel-01.png" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/logo.gif" type="image/gif" />
+    <script defer src="https://vibeloft.ai/telemetry/v1.js" data-vl-product-id="397f5da7-5855-4c69-aa89-cefb41c28289" data-vl-auth-key="vl_web.UtD6htRCuR-m-B3wW-y34fP3-Sou3L-VjP2sVTdcKbU"></script>
+    <style>
+      :root {
+        --bg: #06090f;
+        --bg-soft: #0b111d;
+        --card: rgba(255, 255, 255, 0.035);
+        --card-hover: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.09);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text: #edf1f8;
+        --text-2: #98a2b8;
+        --text-3: #5c6679;
+        --blue: #2d75f6;
+        --blue-2: #5b93ff;
+        --blue-glow: rgba(45, 117, 246, 0.35);
+        --orange: #f5a623;
+        --radius: 20px;
+        --nav-h: 60px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro SC', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        font-size: 16px;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      /* 全局氛围光 */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(900px 500px at 75% -5%, rgba(45, 117, 246, 0.14), transparent 60%), radial-gradient(700px 420px at 8% 18%, rgba(91, 147, 255, 0.07), transparent 60%), radial-gradient(800px 500px at 50% 105%, rgba(45, 117, 246, 0.08), transparent 60%);
+        pointer-events: none;
+      }
+
+      ::selection {
+        background: rgba(45, 117, 246, 0.4);
+      }
+
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #232b3d;
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--blue-2);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ============ 导航 ============ */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        height: var(--nav-h);
+        background: rgba(6, 9, 15, 0.72);
+        backdrop-filter: blur(18px) saturate(1.4);
+        -webkit-backdrop-filter: blur(18px) saturate(1.4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .nav-inner {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+      }
+
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: 0.2px;
+      }
+
+      .nav-brand img {
+        width: 26px;
+        height: 22px;
+        border-radius: 6px;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        margin-left: auto;
+        font-size: 14px;
+        color: var(--text-2);
+      }
+
+      .nav-links a {
+        transition: color 0.2s;
+      }
+      .nav-links a:hover {
+        color: var(--text);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 20px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition:
+          transform 0.18s,
+          box-shadow 0.18s,
+          background 0.18s,
+          border-color 0.18s;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: var(--blue);
+        color: #fff;
+        box-shadow: 0 4px 18px rgba(45, 117, 246, 0.35);
+      }
+
+      .btn-primary:hover {
+        background: #3d82ff;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 26px rgba(45, 117, 246, 0.45);
+      }
+
+      .btn-ghost {
+        background: var(--card);
+        border-color: var(--border);
+        color: var(--text);
+      }
+
+      .btn-ghost:hover {
+        background: var(--card-hover);
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .btn-sm {
+        padding: 6px 15px;
+        border-radius: 10px;
+        font-size: 13px;
+      }
+
+      .btn-disabled {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.16);
+        color: var(--text-2);
+        cursor: default;
+        pointer-events: none;
+        opacity: 0.85;
+      }
+
+      .btn-outline-blue {
+        background: rgba(45, 117, 246, 0.08);
+        border-color: rgba(45, 117, 246, 0.45);
+        color: #7fb0ff;
+        box-shadow: 0 0 20px rgba(45, 117, 246, 0.12);
+      }
+
+      .btn-outline-blue:hover {
+        background: rgba(45, 117, 246, 0.18);
+        border-color: rgba(45, 117, 246, 0.7);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 0 28px rgba(45, 117, 246, 0.25);
+      }
+
+      .btn-lg {
+        padding: 14px 30px;
+        border-radius: 14px;
+        font-size: 16px;
+      }
+
+      /* ============ Hero ============ */
+      .hero {
+        padding: calc(var(--nav-h) + 64px) 0 40px;
+        text-align: center;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 13px;
+        color: var(--text-2);
+      }
+
+      .pill .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--blue-2);
+        box-shadow: 0 0 8px var(--blue-2);
+      }
+
+      .pill b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .hero h1 {
+        margin-top: 26px;
+        font-size: clamp(40px, 7vw, 68px);
+        font-weight: 800;
+        letter-spacing: -1.5px;
+        line-height: 1.12;
+      }
+
+      .hero h1 .grad {
+        background: linear-gradient(115deg, #7fb0ff 0%, var(--blue) 55%, #1e56c8 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero .sub {
+        margin: 20px auto 0;
+        max-width: 560px;
+        font-size: 18px;
+        color: var(--text-2);
+      }
+
+      .hero .sub b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .cta-row {
+        margin-top: 36px;
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .hero-note {
+        margin-top: 16px;
+        font-size: 13px;
+        color: var(--text-3);
+      }
+
+      /* ============ 桌面产品图 ============ */
+      .shot-wrap {
+        padding: 64px 0 20px;
+      }
+
+      .screen {
+        position: relative;
+        border-radius: 24px;
+        border: 1px solid var(--border-strong);
+        overflow: hidden;
+        aspect-ratio: 16 / 10;
+        background: radial-gradient(120% 130% at 85% 0%, #27335c 0%, transparent 55%), radial-gradient(110% 120% at 5% 100%, #14224a 0%, transparent 55%), linear-gradient(160deg, #101830 0%, #0a0f1e 60%, #070b15 100%);
+        box-shadow:
+          0 40px 90px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+          0 0 120px rgba(45, 117, 246, 0.1);
+      }
+
+      /* 模拟 macOS 菜单栏 */
+      .mockbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 12px;
+        background: rgba(16, 21, 35, 0.55);
+        backdrop-filter: blur(20px) saturate(1.5);
+        -webkit-backdrop-filter: blur(20px) saturate(1.5);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        color: rgba(255, 255, 255, 0.92);
+        user-select: none;
+      }
+
+      .mockbar .apple {
+        font-size: 14px;
+        margin-right: 18px;
+        transform: translateY(-0.5px);
+      }
+      .mockbar .app-name {
+        font-weight: 700;
+        margin-right: 18px;
+      }
+      .mockbar .menu {
+        margin-right: 16px;
+        color: rgba(255, 255, 255, 0.75);
+      }
+
+      .mockbar .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      /* 菜单栏小组件：7D / 5H */
+      .widget {
+        display: flex;
+        gap: 7px;
+        font-size: 8.5px;
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: 0.2px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+
+      .widget .row {
+        display: flex;
+        flex-direction: column;
+      }
+      .widget .k {
+        color: rgba(255, 255, 255, 0.62);
+      }
+      .widget .v {
+        color: #fff;
+      }
+
+      .widget .pair {
+        display: flex;
+        gap: 3px;
+      }
+      .widget .pair span:first-child {
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      .mockbar .clock {
+        color: rgba(255, 255, 255, 0.85);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* 悬浮面板截图/复刻 */
+      .panel-float {
+        position: absolute;
+        top: 46px;
+        right: 26px;
+        width: min(300px, 34%);
+        animation: floaty 7s ease-in-out infinite;
+      }
+
+      .panel-float .kp,
+      .panel-float img {
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow:
+          0 30px 70px rgba(0, 0, 0, 0.6),
+          0 0 60px rgba(45, 117, 246, 0.18);
+      }
+
+      .panel-float img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      @keyframes floaty {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-9px);
+        }
+      }
+
+      /* 模拟 Dock */
+      .dock {
+        position: absolute;
+        left: 50%;
+        bottom: 14px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+
+      .dock i {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      .dock i.kb {
+        background: var(--blue) url(assets/logo.gif) center / 80% no-repeat;
+        box-shadow: 0 4px 14px rgba(45, 117, 246, 0.5);
+      }
+
+      /* ============ 通用 Section ============ */
+      section {
+        padding: 72px 0;
+      }
+
+      .sec-head {
+        text-align: center;
+        margin-bottom: 44px;
+      }
+
+      .sec-tag {
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 3px;
+        color: var(--blue-2);
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+
+      .sec-head h2 {
+        font-size: clamp(28px, 4vw, 40px);
+        font-weight: 800;
+        letter-spacing: -0.8px;
+      }
+
+      .sec-head p {
+        margin: 14px auto 0;
+        max-width: 520px;
+        color: var(--text-2);
+      }
+
+      /* ============ 功能特性 ============ */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 26px 24px;
+        transition:
+          transform 0.25s,
+          border-color 0.25s,
+          background 0.25s;
+      }
+
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(45, 117, 246, 0.45);
+        background: var(--card-hover);
+      }
+
+      .card-highlight {
+        border-color: rgba(45, 117, 246, 0.35);
+        background: rgba(45, 117, 246, 0.06);
+      }
+
+      .card-highlight:hover {
+        border-color: rgba(45, 117, 246, 0.55);
+        background: rgba(45, 117, 246, 0.09);
+      }
+
+      .card .icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(45, 117, 246, 0.14);
+        border: 1px solid rgba(45, 117, 246, 0.3);
+        color: var(--blue-2);
+        margin-bottom: 18px;
+      }
+
+      .card h3 {
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .card p {
+        font-size: 14px;
+        color: var(--text-2);
+        line-height: 1.75;
+      }
+
+      /* ============ 双主题预览 ============ */
+      .showcase-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .duo {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        align-items: center;
+      }
+
+      .duo figure {
+        width: 100%;
+        max-width: 360px;
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+        transition:
+          transform 0.3s,
+          box-shadow 0.3s;
+      }
+
+      .duo figure:hover {
+        transform: translateY(-6px);
+        box-shadow:
+          0 34px 80px rgba(0, 0, 0, 0.6),
+          0 0 60px rgba(45, 117, 246, 0.12);
+      }
+
+      .duo img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .duo .kp {
+        max-width: 360px;
+        padding: 12px;
+        gap: 10px;
+        font-size: 12px;
+      }
+
+      .duo .kp-header {
+        gap: 10px;
+      }
+
+      .duo .kp-logo {
+        width: 38px;
+        height: 26px;
+      }
+
+      .duo .kp-logo-body {
+        border-radius: 7px;
+      }
+
+      .duo .kp-eyes i {
+        top: 8px;
+        width: 3.3px;
+        height: 9px;
+      }
+
+      .duo .kp-eyes i:first-child {
+        left: 14px;
+      }
+
+      .duo .kp-eyes i:last-child {
+        left: 20px;
+      }
+
+      .duo .kp-title {
+        font-size: 15px;
+      }
+
+      .duo .kp-community {
+        padding: 5px 8px;
+        font-size: 11px;
+        gap: 4px;
+      }
+
+      .duo .kp-cards {
+        gap: 10px;
+      }
+
+      .duo .kp-card {
+        padding: 10px;
+        border-radius: 12px;
+      }
+
+      .duo .kp-quota-row {
+        gap: 10px;
+      }
+
+      .duo .kp-quota {
+        gap: 6px;
+      }
+
+      .duo .kp-quota-title {
+        font-size: 11px;
+      }
+
+      .duo .kp-num {
+        font-size: 26px;
+      }
+
+      .duo .kp-value {
+        height: 30px;
+      }
+
+      .duo .kp-bar {
+        height: 3px;
+      }
+
+      .duo .kp-reset {
+        font-size: 10px;
+      }
+
+      .duo .kp-wallet {
+        gap: 6px;
+        padding: 10px;
+      }
+
+      .duo .kp-balance-row {
+        height: 24px;
+      }
+
+      .duo .kp-balance {
+        font-size: 18px;
+      }
+
+      .duo .kp-spend {
+        font-size: 10px;
+      }
+
+      .duo .kp-server {
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .duo .kp-server-title {
+        font-size: 12px;
+      }
+
+      .duo .kp-version {
+        font-size: 11px;
+      }
+
+      .duo .kp-server-btns {
+        gap: 6px;
+      }
+
+      .duo .kp-btn {
+        padding: 7px 0;
+        border-radius: 8px;
+        font-size: 11px;
+      }
+
+      .duo .kp-actions {
+        gap: 6px;
+      }
+
+      .duo .kp-act {
+        padding: 9px 0;
+        gap: 4px;
+        font-size: 10px;
+      }
+
+      .duo .kp-act svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .duo .kp-act .kp-kimi {
+        font-size: 12px;
+        height: 15px;
+      }
+
+      .duo .kp-cli {
+        padding: 9px 10px;
+        font-size: 11px;
+      }
+
+      .duo .kp-badge {
+        font-size: 9px;
+      }
+
+      .duo .kp-badge-new {
+        font-size: 8px;
+      }
+
+      @media (max-width: 640px) {
+        .duo .kp {
+          max-width: 340px;
+        }
+      }
+
+      /* ============ 性能优势 ============ */
+      .perf-visual {
+        position: relative;
+      }
+
+      .perf-monitor {
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+        background: var(--bg-soft);
+      }
+
+      .perf-monitor-bar {
+        height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-2);
+      }
+
+      .perf-monitor-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--blue);
+        box-shadow: 0 0 8px var(--blue);
+      }
+
+      .perf-monitor-body {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .perf-metric-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .perf-metric {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .perf-label {
+        font-size: 12px;
+        color: var(--text-3);
+      }
+
+      .perf-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .perf-memory-bar {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--card);
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+
+      .perf-memory-used {
+        height: 100%;
+        width: var(--p);
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--blue), var(--blue-2));
+        box-shadow: 0 0 12px rgba(45, 117, 246, 0.5);
+        animation: perf-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes perf-pulse {
+        0%,
+        100% {
+          opacity: 0.85;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .perf-process-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .perf-process {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        font-size: 13px;
+      }
+
+      .perf-process:first-child {
+        border-color: rgba(45, 117, 246, 0.4);
+        background: rgba(45, 117, 246, 0.08);
+      }
+
+      .perf-name {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .perf-usage {
+        color: var(--text-2);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .perf-process:first-child .perf-usage {
+        color: var(--blue-2);
+      }
+
+      /* ============ 更新探测 ============ */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr;
+        gap: 56px;
+        align-items: center;
+      }
+
+      .split h2 {
+        font-size: clamp(26px, 3.6vw, 36px);
+        font-weight: 800;
+        letter-spacing: -0.6px;
+        margin-bottom: 16px;
+      }
+
+      .split .desc {
+        color: var(--text-2);
+        margin-bottom: 26px;
+      }
+
+      .check-list {
+        list-style: none;
+      }
+      .check-list li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 14px;
+        font-size: 15px;
+        color: var(--text-2);
+      }
+
+      .check-list li b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .check-list svg {
+        flex: none;
+        margin-top: 4px;
+        color: var(--blue-2);
+      }
+
+      .update-visual {
+        position: relative;
+      }
+
+      .update-visual .dialog {
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+      }
+
+      .update-visual .dialog img {
+        display: block;
+        width: 100%;
+      }
+
+      .update-visual .notify {
+        position: absolute;
+        top: -26px;
+        right: -14px;
+        width: 62%;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+        animation: floaty 6s ease-in-out infinite;
+      }
+
+      .update-visual .notify img {
+        display: block;
+        width: 100%;
+      }
+
+      /* ============ 隐私安全 ============ */
+      .privacy {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .privacy .card {
+        text-align: center;
+        padding: 34px 24px;
+      }
+      .privacy .card .icon {
+        margin: 0 auto 18px;
+      }
+
+      /* ============ 平台 ============ */
+      .platforms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        max-width: 760px;
+        margin: 0 auto;
+      }
+
+      .platform {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 26px 28px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--card);
+      }
+
+      .platform .icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        color: var(--text);
+        flex: none;
+      }
+
+      .platform h3 {
+        font-size: 17px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .tag {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 999px;
+      }
+
+      .tag-ok {
+        background: rgba(52, 199, 123, 0.15);
+        color: #4ade90;
+        border: 1px solid rgba(52, 199, 123, 0.35);
+      }
+      .tag-wip {
+        background: rgba(245, 166, 35, 0.12);
+        color: var(--orange);
+        border: 1px solid rgba(245, 166, 35, 0.3);
+      }
+
+      .platform p {
+        font-size: 13px;
+        color: var(--text-3);
+        margin-top: 2px;
+      }
+
+      .platform.soon {
+        opacity: 0.65;
+      }
+
+      /* ============ 下载 CTA ============ */
+      .cta-final {
+        text-align: center;
+      }
+
+      .cta-final img.logo {
+        width: 76px;
+        border-radius: 20px;
+        box-shadow: 0 16px 44px rgba(45, 117, 246, 0.4);
+        margin-bottom: 26px;
+      }
+
+      .cta-final h2 {
+        font-size: clamp(30px, 4.4vw, 44px);
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+
+      .cta-final p {
+        color: var(--text-2);
+        margin: 14px 0 32px;
+      }
+
+      /* ============ 页脚 ============ */
+      footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 44px 0 52px;
+        color: var(--text-3);
+        font-size: 13px;
+      }
+
+      .foot-inner {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+      }
+
+      .foot-links {
+        display: flex;
+        gap: 20px;
+        margin-left: auto;
+      }
+      .foot-links a {
+        color: var(--text-2);
+        transition: color 0.2s;
+      }
+      .foot-links a:hover {
+        color: var(--text);
+      }
+
+      .foot-note {
+        width: 100%;
+        margin-top: 14px;
+        line-height: 1.8;
+      }
+
+      /* ============ KimiPanel 实时复刻（依据最新 SwiftUI 源码） ============ */
+      .kp {
+        /* 设计令牌：与 KimiCodeBarApp.swift 中一致 */
+        --p1: #ffffff; /* kimiTextPrimary (dark) */
+        --p2: rgba(255, 255, 255, 0.55); /* kimiTextSecondary */
+        --p3: rgba(255, 255, 255, 0.4); /* kimiTextTertiary */
+        --card: #1c2436; /* kimiCardBackground */
+        --track: rgba(255, 255, 255, 0.1);
+        --btn: rgba(255, 255, 255, 0.06);
+        --btn-h: rgba(255, 255, 255, 0.1);
+        --act-bg: rgba(255, 255, 255, 0.1);
+        --act-border: rgba(255, 255, 255, 0.14);
+        --overlay: rgba(255, 255, 255, 0.06);
+        --line: rgba(255, 255, 255, 0.2);
+        --line-h: rgba(255, 255, 255, 0.4);
+        --eye: #181817;
+        --ring: rgba(255, 255, 255, 0.7);
+        --green: #32d74b;
+        --orange: #ff9f0a;
+        --blue: #3b82f5; /* kimiBlue */
+        width: 100%;
+        max-width: 340px;
+        background: #0f1421; /* kimiPanelBackground */
+        border-radius: 20px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        color: var(--p1);
+        font-size: 13px;
+        line-height: 1.4;
+        text-align: left;
+        user-select: none;
+      }
+
+      .kp-light {
+        --p1: #1f1f1f;
+        --p2: #595959;
+        --p3: #808080;
+        --card: rgba(255, 255, 255, 0.9);
+        --track: rgba(0, 0, 0, 0.1);
+        --btn: rgba(0, 0, 0, 0.05);
+        --btn-h: rgba(0, 0, 0, 0.09);
+        --act-bg: rgba(0, 0, 0, 0.07);
+        --act-border: rgba(0, 0, 0, 0.11);
+        --overlay: rgba(0, 0, 0, 0.05);
+        --line: rgba(0, 0, 0, 0.18);
+        --line-h: rgba(0, 0, 0, 0.38);
+        --eye: #ffffff;
+        --ring: rgba(0, 0, 0, 0.55);
+        --green: #34c759;
+        --orange: #ff9500;
+        background: rgba(240, 241, 246, 0.96);
+      }
+
+      .kp button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      /* --- Header --- */
+      .kp-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      /* Logo：44x30.25，蓝色圆角身体 + 两只眼睛（scale = 44/32） */
+      .kp-logo {
+        position: relative;
+        width: 44px;
+        height: 30px;
+        flex: none;
+      }
+
+      .kp-logo-body {
+        position: absolute;
+        inset: 1.4px;
+        border-radius: 8.2px;
+        background: var(--blue);
+        box-shadow: 0 2px 8px rgba(59, 130, 245, 0.45);
+      }
+
+      .kp-eyes {
+        position: absolute;
+        inset: 0;
+        transition: transform 0.3s ease-in-out;
+      }
+
+      .kp-eyes i {
+        position: absolute;
+        top: 9.6px;
+        width: 3.85px;
+        height: 11px;
+        border-radius: 1.9px;
+        background: var(--eye);
+        transform-origin: 50% 50%;
+        animation: kp-blink 3s infinite;
+      }
+
+      .kp-eyes i:first-child {
+        left: 16.2px;
+      }
+      .kp-eyes i:last-child {
+        left: 23.9px;
+      }
+
+      /* 眨眼：闭眼 0.08s → 停留 0.04s → 睁眼 0.08s，每 3s 一次 */
+      @keyframes kp-blink {
+        0%,
+        2.6% {
+          transform: scaleY(1);
+        }
+        4% {
+          transform: scaleY(0.12);
+        }
+        6.7%,
+        100% {
+          transform: scaleY(1);
+        }
+      }
+
+      .kp-title {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+      }
+
+      .kp-community {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        color: var(--p2);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          color 0.15s,
+          border-color 0.15s,
+          background 0.15s;
+      }
+
+      .kp-community:hover {
+        color: var(--p1);
+        border-color: var(--line-h);
+        background: var(--btn-h);
+      }
+
+      /* --- 卡片通用 --- */
+      .kp-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .kp-card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 14px;
+      }
+
+      /* --- 用量卡片 --- */
+      .kp-quota-row {
+        display: flex;
+        gap: 12px;
+      }
+
+      .kp-quota {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .kp-quota-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--p1);
+      }
+
+      .kp-value {
+        height: 38px;
+        display: flex;
+        align-items: center;
+      }
+
+      .kp-num {
+        font-family:
+          ui-rounded,
+          'SF Pro Rounded',
+          -apple-system,
+          'PingFang SC',
+          sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        font-variant-numeric: tabular-nums;
+        color: var(--p1);
+      }
+
+      .kp-loading .kp-num {
+        display: none;
+      }
+
+      .kp-ring {
+        display: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2.5px solid transparent;
+        border-top-color: var(--ring);
+        border-right-color: var(--ring);
+        animation: kp-spin 1s linear infinite;
+      }
+
+      .kp-loading .kp-ring {
+        display: block;
+      }
+
+      @keyframes kp-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .kp-bar {
+        width: 100%;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--track);
+        overflow: hidden;
+      }
+
+      .kp-bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: var(--c, var(--blue));
+        box-shadow: 0 1px 3px var(--c-glow, rgba(59, 130, 245, 0.4));
+        animation: kp-grow 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
+      }
+
+      @keyframes kp-grow {
+        to {
+          width: var(--p);
+        }
+      }
+
+      .kp-reset {
+        font-size: 11px;
+        color: var(--p2);
+      }
+
+      /* --- 加油包卡片 --- */
+      .kp-wallet {
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .kp-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .kp-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--p1);
+      }
+
+      .kp-badge {
+        font-size: 10px;
+        font-weight: 500;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--p3);
+        background: var(--overlay);
+      }
+
+      .kp-badge.green {
+        color: var(--green);
+        background: color-mix(in srgb, var(--green) 12%, transparent);
+      }
+      .kp-badge.red {
+        color: #ff453a;
+        background: rgba(255, 69, 58, 0.12);
+      }
+      .kp-badge.orange {
+        color: var(--orange);
+        background: color-mix(in srgb, var(--orange) 12%, transparent);
+      }
+
+      .kp-spacer {
+        flex: 1;
+      }
+
+      .kp-balance-row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        height: 28px;
+      }
+
+      .kp-balance {
+        font-family:
+          ui-rounded,
+          'SF Pro Rounded',
+          -apple-system,
+          'PingFang SC',
+          sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--p3); /* 未启用 → tertiary */
+      }
+
+      .kp-loading .kp-balance {
+        display: none;
+      }
+
+      .kp-spend {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--p2);
+        font-variant-numeric: tabular-nums;
+      }
+      .kp-spend b {
+        color: var(--p1);
+        font-weight: 500;
+      }
+
+      .kp-bar.thin {
+        height: 3px;
+      }
+      .kp-bar.thin i {
+        box-shadow: none;
+        animation: none;
+      }
+
+      /* --- Kimi Web 卡片 --- */
+      .kp-server {
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .kp-server-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--p1);
+      }
+
+      .kp-version {
+        font-size: 12px;
+        font-weight: 500;
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        color: var(--p2);
+      }
+
+      .kp-server-btns {
+        display: flex;
+        gap: 8px;
+      }
+
+      .kp-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 10px 0;
+        border-radius: 10px;
+        background: var(--act-bg);
+        border: 1px solid var(--act-border);
+        color: var(--p2);
+        font-size: 13px;
+        font-weight: 500;
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+
+      .kp-btn:hover {
+        background: var(--btn-h);
+        color: var(--p2);
+      }
+
+      .kp-btn.wide {
+        flex: none;
+        width: 42%;
+      }
+
+      .kp-btn.disabled,
+      .kp-btn.disabled:hover {
+        color: var(--p3);
+        background: var(--btn);
+        cursor: default;
+        pointer-events: none;
+      }
+
+      .kp-btn .kp-ring {
+        width: 14px;
+        height: 14px;
+        border-width: 2px;
+      }
+      .kp-btn.loading .kp-ring {
+        display: block;
+      }
+      .kp-btn.loading .kp-btn-label,
+      .kp-btn.loading svg {
+        display: none;
+      }
+
+      /* --- 操作按钮 --- */
+      .kp-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .kp-act {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 0;
+        border-radius: 10px;
+        background: var(--act-bg);
+        border: 1px solid var(--act-border);
+        color: var(--p2);
+        font-size: 11px;
+        font-weight: 500;
+        transition:
+          color 0.15s,
+          background 0.15s;
+        text-decoration: none;
+      }
+
+      button.kp-act {
+        cursor: default;
+      }
+
+      .kp-act:hover {
+        background: var(--btn-h);
+        color: var(--p2);
+      }
+
+      .kp-act .kp-kimi {
+        font-size: 14px;
+        font-weight: 700;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        letter-spacing: 0.5px;
+      }
+
+      .kp-act svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .kp-loading [data-kp-action='refresh'] svg {
+        animation: kp-spin 1s linear infinite;
+      }
+
+      /* --- CLI 版本条 --- */
+      .kp-cli {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: var(--card);
+        color: var(--p3);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s;
+        position: relative;
+      }
+
+      .kp-cli:hover::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        background: var(--overlay);
+      }
+
+      .kp-cli .kp-version {
+        font-size: 12px;
+      }
+
+      .kp-badge-new {
+        font-size: 9px;
+        font-weight: 500;
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: var(--orange);
+        background: color-mix(in srgb, var(--orange) 12%, transparent);
+      }
+
+      .kp-chevron {
+        color: var(--p3);
+        display: flex;
+      }
+      .kp-cli:hover .kp-chevron {
+        color: var(--p2);
+      }
+
+      /* --- 复刻标识 pill --- */
+      .live-pill {
+        position: absolute;
+        top: -11px;
+        left: 18px;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 11px;
+        border-radius: 999px;
+        background: #101827;
+        border: 1px solid rgba(50, 215, 75, 0.4);
+        color: #4ade90;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      }
+
+      .live-pill i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #4ade90;
+        box-shadow: 0 0 8px #4ade90;
+        animation: kp-pulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes kp-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      .kp-scale {
+        transform-origin: top right;
+      }
+
+      /* 复刻面板在 hero 中的缩放适配 */
+      @media (max-width: 960px) {
+        .kp-scale {
+          transform: scale(0.8);
+        }
+      }
+
+      .showcase-note {
+        margin: 30px auto 0;
+        max-width: 560px;
+        text-align: center;
+        font-size: 14px;
+        color: var(--text-2);
+      }
+
+      .showcase-note b {
+        color: var(--blue-2);
+        font-weight: 600;
+      }
+
+      /* ============ Kimi 一键登录 ============ */
+      .login-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .login-card {
+        width: 100%;
+        max-width: 440px;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-soft);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+
+      .login-card-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.2px;
+      }
+
+      .login-card-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .login-card-section h4 {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .login-card-section p {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+
+      .login-method-tabs {
+        display: flex;
+        gap: 10px;
+        margin-top: 6px;
+      }
+
+      .login-method-tab {
+        flex: 1;
+        padding: 9px 16px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+        border: 1px solid transparent;
+      }
+
+      .login-method-tab.active {
+        background: var(--blue);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(45, 117, 246, 0.35);
+      }
+
+      .login-method-tab.inactive {
+        background: var(--card);
+        border-color: var(--border);
+        color: var(--text-2);
+      }
+
+      .login-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 0;
+        border: none;
+      }
+
+      .login-auth-status {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        justify-content: space-between;
+      }
+
+      .login-auth-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .login-auth-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .login-auth-main svg {
+        width: 22px;
+        height: 22px;
+        color: #34c759;
+      }
+
+      .login-auth-sub {
+        font-size: 13px;
+        color: var(--text-2);
+      }
+
+      .login-logout {
+        padding: 7px 14px;
+        border-radius: 8px;
+        background: rgba(255, 69, 58, 0.12);
+        color: #ff453a;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid rgba(255, 69, 58, 0.25);
+        white-space: nowrap;
+      }
+
+      .login-card-footnote {
+        font-size: 13px;
+        color: var(--text-3);
+        line-height: 1.7;
+      }
+
+      @media (max-width: 640px) {
+        .login-card {
+          padding: 22px;
+          gap: 18px;
+        }
+        .login-auth-status {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
+      }
+
+      /* ============ 滚动入场 ============ */
+      .reveal {
+        opacity: 0;
+        transform: translateY(26px);
+        transition:
+          opacity 0.7s ease,
+          transform 0.7s ease;
+      }
+
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* ============ 响应式 ============ */
+      @media (max-width: 960px) {
+        .features {
+          grid-template-columns: 1fr 1fr;
+        }
+        .privacy {
+          grid-template-columns: 1fr;
+        }
+        .split {
+          grid-template-columns: 1fr;
+          gap: 40px;
+        }
+        .update-visual {
+          max-width: 560px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        section {
+          padding: 56px 0;
+        }
+        .nav-links {
+          display: none;
+        }
+        .hero h1 {
+          font-size: 34px;
+          letter-spacing: -1px;
+        }
+        .hero .sub {
+          font-size: 16px;
+        }
+        .features {
+          grid-template-columns: 1fr;
+        }
+        .duo {
+          max-width: 100%;
+        }
+        .platforms {
+          grid-template-columns: 1fr;
+        }
+        .mockbar .menu {
+          display: none;
+        }
+        .panel-float {
+          display: none;
+        }
+        .dock i {
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
+        }
+        .update-visual .notify {
+          right: -4px;
+        }
+        .screen {
+          aspect-ratio: 4 / 3;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 导航 -->
+    <nav>
+      <div class="nav-inner">
+        <a class="nav-brand" href="#top">
+          <img src="assets/logo.gif" alt="KimiCodeBar Logo" />
+          KimiCodeBar
+        </a>
+        <a class="btn btn-outline-blue btn-sm" style="margin-left: auto" href="https://github.com/xifandev/KimiCodeBar" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="hero" id="top">
+      <div class="container">
+        <span class="pill reveal">
+          <span class="dot"></span>
+          <b>v1.1.0</b>&nbsp;·&nbsp;Github 开源&nbsp;·&nbsp;Kimi 社区版
+        </span>
+        <h1 class="reveal">
+          <!-- 菜单栏上的 -->
+          ✨免费开源
+          <br />
+          <span class="grad">Kimi Code 用量仪表盘</span>
+        </h1>
+        <p class="sub reveal">
+          专为 <b>Kimi Code</b> 打造的菜单栏监控工具。<br />
+          抬头即见，限额一目了然。
+        </p>
+        <div class="cta-row reveal">
+          <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.72 1.13-4.72 2.86-2.01 3.49-.51 8.66 1.45 11.5.96 1.39 2.1 2.94 3.6 2.88 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.04-.02-3.03-1.16-3.09-4.6zM14.16 4.06c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.85-1.39 2.23-1.22 3.54 1.29.1 2.6-.65 3.41-1.62z" />
+            </svg>
+            macOS 版
+          </a>
+          <span class="btn btn-disabled btn-lg">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zm9 8.1H3v7.1l7.5-1.1v-6zm1.5-8.3L21 4v7.5h-7.5V5.3zM13.5 13.5H21V20l-7.5 1.1v-7.6z" /></svg>
+            Windows 版
+            <span class="tag tag-wip">开发中</span>
+          </span>
+        </div>
+        <!-- <p class="hero-note reveal">通过 GitHub Releases 免费分发 · 数据仅存储在本地</p> -->
+      </div>
+
+      <!-- 桌面产品图 -->
+      <div class="container shot-wrap reveal">
+        <div class="screen">
+          <!-- 模拟菜单栏 -->
+          <div class="mockbar">
+            <span class="apple"></span>
+            <span class="app-name">KimiCodeBar</span>
+            <span class="menu">控制台</span>
+            <span class="menu">设置</span>
+            <span class="menu">帮助</span>
+            <div class="right">
+              <div class="widget" title="本周用量 84% · 5 小时用量 6%">
+                <div class="row">
+                  <div class="pair"><span>7D</span><span class="v">84%</span></div>
+                  <div class="pair"><span>5H</span><span class="v">6%</span></div>
+                </div>
+              </div>
+              <span class="clock" id="mockClock"></span>
             </div>
           </div>
-          <span class="clock" id="mockClock"></span>
+          <div class="panel-float">
+            <div class="kp-scale"><div class="kp-mount" data-theme="dark"></div></div>
+            <noscript><img src="assets/panel-01.png" alt="KimiCodeBar 暗夜模式面板" /></noscript>
+          </div>
+          <!-- Dock -->
+          <div class="dock"><i></i><i></i><i></i><i class="kb" title="KimiCodeBar"></i><i></i><i></i></div>
         </div>
       </div>
-      <div class="panel-float">
-        <div class="kp-scale"><div class="kp-mount" data-theme="dark"></div></div>
-        <noscript><img src="assets/panel-01.png" alt="KimiCodeBar 暗夜模式面板"></noscript>
-      </div>
-      <!-- Dock -->
-      <div class="dock">
-        <i></i><i></i><i></i><i class="kb" title="KimiCodeBar"></i><i></i><i></i>
-      </div>
-    </div>
-  </div>
-</header>
+    </header>
 
-<!-- 功能特性 -->
-<section id="features">
-  <div class="container">
-    <div class="sec-head reveal">
-      <span class="sec-tag">Features</span>
-      <h2>为 Kimi Code 而生</h2>
-      <p>轻量驻留菜单栏，不占 Dock、不打断心流，需要时一眼可见。</p>
-    </div>
-    <div class="features">
-      <div class="card reveal card-highlight">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+    <!-- 功能特性 -->
+    <section id="features">
+      <div class="container">
+        <div class="sec-head reveal">
+          <span class="sec-tag">Features</span>
+          <h2>为 Kimi Code 而生</h2>
+          <p>轻量驻留菜单栏，不占 Dock、不打断心流，需要时一眼可见。</p>
         </div>
-        <h3>Kimi 一键登录 ✨</h3>
-        <p>采用 Kimi Code 官方接口，浏览器授权即登录；同时保留 API Key 方式，可在设置中自由切换。</p>
-      </div>
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </div>
-        <h3>用量一目了然</h3>
-        <p>本周（7 天）与 5 小时限额常驻菜单栏，百分比、进度条、重置时间一屏掌握，还有加油包余额。</p>
-      </div>
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </div>
-        <h3>更新自动探测</h3>
-        <p>自动检测 Kimi Code CLI 新版本，系统通知 + 面板提醒，更新内容清晰可见，一键直达下载。</p>
-      </div>
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3>隐私安全</h3>
-        <p>数据仅存储在本地，所有 API 只与 Kimi 官方通信，代码完全开源，可逐行审计。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 双主题预览 -->
-<section id="showcase">
-  <div class="container">
-    <div class="sec-head reveal">
-      <span class="sec-tag">Showcase</span>
-      <h2>明暗双主题，跟随系统</h2>
-      <p>面板外观自动适配 macOS 深浅色模式，融入桌面，毫不突兀。</p>
-    </div>
-    <div class="duo">
-      <figure class="reveal">
-        <div class="kp-mount" data-theme="dark" style="margin:0 auto"></div>
-        <noscript><img src="assets/panel-01.png" alt="KimiCodeBar 暗夜模式面板" loading="lazy"></noscript>
-        <figcaption><b>暗夜模式</b> · 深夜写码不刺眼</figcaption>
-      </figure>
-      <figure class="reveal">
-        <div class="kp-mount" data-theme="light" style="margin:0 auto"></div>
-        <noscript><img src="assets/panel-02.png" alt="KimiCodeBar 浅色模式面板" loading="lazy"></noscript>
-        <figcaption><b>浅色模式</b> · 白天同样清晰</figcaption>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- Kimi 一键登录 -->
-<section id="login">
-  <div class="container">
-    <div class="split">
-      <div class="reveal">
-        <span class="sec-tag">Kimi Login</span>
-        <h2>Kimi 一键登录</h2>
-        <p class="desc">浏览器授权即可登录，无需手动复制 API Key；也保留传统 Key 方式，随你习惯切换。</p>
-        <ul class="check-list">
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>浏览器一键授权</b>，自动获取并保存登录态</span>
-          </li>
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>API Key 方式保留</b>，专业用户可自由切换</span>
-          </li>
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>设置页随时查看</b>授权状态，一键退出</span>
-          </li>
-        </ul>
-      </div>
-      <div class="login-visual reveal">
-        <div class="login-panel-mask">
-          <div class="kp-mount" data-theme="dark"></div>
-          <div class="login-overlay">
-            <span class="login-icon">🔒</span>
-            <span class="login-title">需要登录 Kimi 账号</span>
-            <span class="login-btn">一键授权登录</span>
+        <div class="features">
+          <div class="card reveal card-highlight">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+            </div>
+            <h3>Kimi 一键登录 ✨</h3>
+            <p>采用 Kimi Code 官方接口，浏览器授权即登录；同时保留 API Key 方式，可在设置中自由切换。</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+            </div>
+            <h3>用量一目了然</h3>
+            <p>用量限额实时显示，百分比、进度条、重置时间一屏掌握，还有加油包余额。</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </div>
+            <h3>更新自动探测</h3>
+            <p>自动检测 Kimi Code CLI 新版本，系统通知 + 面板提醒，更新内容清晰可见，一键直达下载。</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+            </div>
+            <h3>隐私安全</h3>
+            <p>所有 API 只与 Kimi 官方通信，代码完全开源，可逐行审计。</p>
           </div>
         </div>
-        <div class="login-status-card">
-          <span class="status-dot"></span>
-          <span><b>授权状态</b>：已登录</span>
-          <span style="margin-left:auto;color:var(--text-3);font-size:12px;">Kimi Code</span>
-        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- 更新探测 -->
-<section id="update">
-  <div class="container">
-    <div class="split">
-      <div class="reveal">
-        <span class="sec-tag">Auto Update</span>
-        <h2>Kimi Code 更新，<br>不再错过</h2>
-        <p class="desc">自动探测 Kimi Code CLI 新版本，从通知到面板，第一时间提醒你升级。</p>
-        <ul class="check-list">
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>系统级通知</b>，新版本发布即刻推送</span>
-          </li>
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>更新日志直接展示</b>，改了什么一目了然</span>
-          </li>
-          <li>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><b>一键安装更新</b>，也可以「稍后再说」</span>
-          </li>
-        </ul>
-      </div>
-      <div class="update-visual reveal">
-        <div class="notify">
-          <img src="assets/msg.png" alt="KimiCode 新版本系统通知" loading="lazy">
+    <!-- 双主题预览 -->
+    <section id="showcase">
+      <div class="container">
+        <div class="split">
+          <div class="reveal">
+            <span class="sec-tag">Showcase</span>
+            <h2>明暗双主题，<br />跟随系统</h2>
+            <p class="desc">面板外观自动适配 macOS 深浅色模式，融入桌面，毫不突兀。</p>
+            <ul class="check-list">
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>跟随系统外观</b>，自动切换深色 / 浅色</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>原生半透明面板</b>，与 macOS 菜单栏视觉统一</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>无需手动设置</b>，随系统主题实时变化</span>
+              </li>
+            </ul>
+          </div>
+          <div class="showcase-visual reveal">
+            <div class="duo">
+              <figure>
+                <div class="kp-mount" data-theme="dark"></div>
+                <noscript><img src="assets/panel-01.png" alt="KimiCodeBar 暗夜模式面板" loading="lazy" /></noscript>
+              </figure>
+              <figure>
+                <div class="kp-mount" data-theme="light"></div>
+                <noscript><img src="assets/panel-02.png" alt="KimiCodeBar 浅色模式面板" loading="lazy" /></noscript>
+              </figure>
+            </div>
+          </div>
         </div>
-        <div class="dialog">
-          <img src="assets/newtip.png" alt="KimiCode 新版本更新对话框" loading="lazy">
-        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- 隐私安全 -->
-<section id="privacy">
-  <div class="container">
-    <div class="sec-head reveal">
-      <span class="sec-tag">Privacy</span>
-      <h2>你的数据，只在你的 Mac 上</h2>
-    </div>
-    <div class="privacy">
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    <!-- Kimi 一键登录 -->
+    <section id="login">
+      <div class="container">
+        <div class="split">
+          <div class="reveal">
+            <span class="sec-tag">Kimi Login</span>
+            <h2>Kimi 一键登录</h2>
+            <p class="desc">浏览器授权即可登录，无需手动复制 API Key；也保留传统 Key 方式，随你习惯切换。</p>
+            <ul class="check-list">
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>浏览器一键授权</b>，自动获取并保存登录态</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>API Key 方式保留</b>，专业用户可自由切换</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>设置页随时查看</b>授权状态，一键退出</span>
+              </li>
+            </ul>
+          </div>
+          <div class="login-visual reveal">
+            <div class="login-card">
+              <div class="login-card-title">登录方式</div>
+              <div class="login-card-section">
+                <h4>认证方式</h4>
+                <p>选择 KimiCodeBar 查询用量时使用的登录方式</p>
+                <div class="login-method-tabs">
+                  <span class="login-method-tab active">授权登录</span>
+                  <span class="login-method-tab inactive">Token 登录</span>
+                </div>
+              </div>
+              <hr class="login-divider" />
+              <div class="login-auth-status">
+                <div class="login-auth-info">
+                  <div class="login-auth-main">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                    已授权 Kimi 账号
+                  </div>
+                  <div class="login-auth-sub">凭证有效期至 07-19 17:04，到期自动续期</div>
+                </div>
+                <span class="login-logout">退出登录</span>
+              </div>
+              <p class="login-card-footnote">授权登录通过浏览器跳转 Kimi 账号完成认证，凭证与 KimiCode CLI 共享，过期自动续期。</p>
+            </div>
+          </div>
         </div>
-        <h3>本地存储</h3>
-        <p>用量数据与登录凭据只保存在本地，不上传、不同步到任何第三方。</p>
       </div>
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        </div>
-        <h3>官方直连</h3>
-        <p>所有网络请求仅与 Kimi 官方接口通信，没有中间商，没有统计埋点。</p>
-      </div>
-      <div class="card reveal">
-        <div class="icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        </div>
-        <h3>开源可审计</h3>
-        <p>MIT 协议全量开源，每一行代码都在 GitHub 上，欢迎审阅与共建。</p>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- 平台支持 -->
-<section id="platform">
-  <div class="container">
-    <div class="sec-head reveal">
-      <span class="sec-tag">Platforms</span>
-      <h2>平台支持</h2>
-    </div>
-    <div class="platforms">
-      <div class="platform reveal">
-        <div class="icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.72 1.13-4.72 2.86-2.01 3.49-.51 8.66 1.45 11.5.96 1.39 2.1 2.94 3.6 2.88 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.04-.02-3.03-1.16-3.09-4.6zM14.16 4.06c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.85-1.39 2.23-1.22 3.54 1.29.1 2.6-.65 3.41-1.62z"/></svg>
-        </div>
-        <div>
-          <h3>macOS <span class="tag tag-ok">已发布</span></h3>
-          <p>菜单栏轻量运行，开箱即用</p>
+    <!-- 性能优势 -->
+    <section id="performance">
+      <div class="container">
+        <div class="split">
+          <div class="reveal">
+            <span class="sec-tag">Performance</span>
+            <h2>原生代码<br />超级轻量化运行</h2>
+            <p class="desc">基于 Swift 与 AppKit 原生构建，常驻菜单栏，几乎感知不到它的存在。</p>
+            <ul class="check-list">
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>Swift 原生语言</b>，与 macOS 深度集成，运行流畅稳定</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>24 小时运行</b>，开机自启，静默驻留菜单栏</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>内存常驻 30–50 MB</b>，远低于同类产品，Mac 性能零负担</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>超轻量极简</b>，无多余后台进程，无冗余功能</span>
+              </li>
+            </ul>
+          </div>
+          <div class="perf-visual reveal">
+            <div class="perf-monitor">
+              <div class="perf-monitor-bar">
+                <div class="perf-monitor-dot"></div>
+                <span>活动监视器</span>
+              </div>
+              <div class="perf-monitor-body">
+                <div class="perf-metric-row">
+                  <div class="perf-metric">
+                    <span class="perf-label">内存占用</span>
+                    <span class="perf-value">38 MB</span>
+                  </div>
+                  <div class="perf-metric">
+                    <span class="perf-label">CPU 占用</span>
+                    <span class="perf-value">0.3%</span>
+                  </div>
+                </div>
+                <div class="perf-memory-bar">
+                  <div class="perf-memory-used" style="--p:4%"></div>
+                </div>
+                <div class="perf-process-list">
+                  <div class="perf-process">
+                    <span class="perf-name">KimiCodeBar</span>
+                    <span class="perf-usage">38.2 MB</span>
+                  </div>
+                  <div class="perf-process">
+                    <span class="perf-name">KimiCode CLI</span>
+                    <span class="perf-usage">142.0 MB</span>
+                  </div>
+                  <div class="perf-process">
+                    <span class="perf-name">Safari</span>
+                    <span class="perf-usage">1.2 GB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="platform soon reveal">
-        <div class="icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zm9 8.1H3v7.1l7.5-1.1v-6zm1.5-8.3L21 4v7.5h-7.5V5.3zM13.5 13.5H21V20l-7.5 1.1v-7.6z"/></svg>
-        </div>
-        <div>
-          <h3>Windows <span class="tag tag-wip">开发中</span></h3>
-          <p>已在路线图上，敬请期待</p>
+    </section>
+
+    <!-- 更新探测 -->
+    <section id="update">
+      <div class="container">
+        <div class="split">
+          <div class="reveal">
+            <span class="sec-tag">Auto Update</span>
+            <h2>Kimi Code 更新，<br />不再错过</h2>
+            <p class="desc">自动探测 Kimi Code CLI 新版本，从通知到面板，第一时间提醒你升级。</p>
+            <ul class="check-list">
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>系统级通知</b>，新版本发布即刻推送</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>更新日志直接展示</b>，改了什么一目了然</span>
+              </li>
+              <li>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <span><b>一键安装更新</b>，也可以「稍后再说」</span>
+              </li>
+            </ul>
+          </div>
+          <div class="update-visual reveal">
+            <div class="notify">
+              <img src="assets/msg.png" alt="KimiCode 新版本系统通知" loading="lazy" />
+            </div>
+            <div class="dialog">
+              <img src="assets/newtip.png" alt="KimiCode 新版本更新对话框" loading="lazy" />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- 下载 CTA -->
-<section class="cta-final" id="download">
-  <div class="container reveal">
-    <img class="logo" src="assets/logo.gif" alt="KimiCodeBar Logo">
-    <h2>现在就把限额<br>放到菜单栏上</h2>
-    <p>免费 · 开源 · 一分钟完成安装</p>
-    <div class="cta-row">
-      <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        前往 GitHub Releases 下载
-      </a>
-      <a class="btn btn-ghost btn-lg" href="https://github.com/xifandev/KimiCodeBar/issues" target="_blank" rel="noopener">反馈问题 / 建议</a>
-    </div>
-  </div>
-</section>
-
-<!-- 页脚 -->
-<footer>
-  <div class="container">
-    <div class="foot-inner">
-      <a class="nav-brand" href="#top" style="font-size:14px">
-        <img src="assets/logo.gif" alt="" style="width:22px;height:18px;border-radius:5px">
-        KimiCodeBar
-      </a>
-      <span>© 2026 xifandev · MIT License</span>
-      <div class="foot-links">
-        <a href="https://github.com/xifandev/KimiCodeBar" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">Releases</a>
-        <a href="https://github.com/xifandev/KimiCodeBar/issues" target="_blank" rel="noopener">Issues</a>
-        <a href="https://www.kimi.com/code" target="_blank" rel="noopener">Kimi Code</a>
+    <!-- 隐私安全 -->
+    <section id="privacy">
+      <div class="container">
+        <div class="sec-head reveal">
+          <span class="sec-tag">Privacy</span>
+          <h2>你的数据，只在你的 Mac 上</h2>
+        </div>
+        <div class="privacy">
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+            <h3>本地存储</h3>
+            <p>用量数据与登录凭据只保存在本地，不上传、不同步到任何第三方。</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h3>官方直连</h3>
+            <p>所有网络请求仅与 Kimi 官方接口通信，没有中间商，没有统计埋点。</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            </div>
+            <h3>开源可审计</h3>
+            <p>MIT 协议全量开源，每一行代码都在 GitHub 上，欢迎审阅与共建。</p>
+          </div>
+        </div>
       </div>
-      <p class="foot-note">
-        KimiCodeBar 是由社区开发者维护的开源项目（Kimi 社区版），并非 Kimi 官方产品。
-        本项目通过 Kimi Code 官方公开接口获取用量数据，仅用于本地展示。
-      </p>
-    </div>
-  </div>
-</footer>
+    </section>
 
-<script>
-  // 模拟菜单栏实时时钟（macOS 中文风格）
-  (function () {
-    var el = document.getElementById('mockClock');
-    if (!el) return;
-    var weeks = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    function pad(n) { return n < 10 ? '0' + n : '' + n; }
-    function tick() {
-      var d = new Date();
-      var h = d.getHours();
-      var ap = h < 12 ? '上午' : '下午';
-      var h12 = h % 12 || 12;
-      el.textContent = (d.getMonth() + 1) + '月' + d.getDate() + '日 ' +
-        weeks[d.getDay()] + ' ' + ap + h12 + ':' + pad(d.getMinutes());
-    }
-    tick();
-    setInterval(tick, 1000);
-  })();
+    <!-- 平台支持 -->
+    <section id="platform">
+      <div class="container">
+        <div class="sec-head reveal">
+          <span class="sec-tag">Platforms</span>
+          <h2>平台支持</h2>
+        </div>
+        <div class="platforms">
+          <div class="platform reveal">
+            <div class="icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M17.05 12.54c-.03-2.89 2.36-4.27 2.47-4.34-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.72 1.13-4.72 2.86-2.01 3.49-.51 8.66 1.45 11.5.96 1.39 2.1 2.94 3.6 2.88 1.45-.06 2-.93 3.75-.93s2.25.93 3.78.9c1.56-.03 2.55-1.41 3.5-2.8 1.1-1.61 1.55-3.17 1.58-3.25-.04-.02-3.03-1.16-3.09-4.6zM14.16 4.06c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.85-1.39 2.23-1.22 3.54 1.29.1 2.6-.65 3.41-1.62z" />
+              </svg>
+            </div>
+            <div>
+              <h3>macOS <span class="tag tag-ok">已发布</span></h3>
+              <p>菜单栏轻量运行，开箱即用</p>
+            </div>
+          </div>
+          <div class="platform soon reveal">
+            <div class="icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zm9 8.1H3v7.1l7.5-1.1v-6zm1.5-8.3L21 4v7.5h-7.5V5.3zM13.5 13.5H21V20l-7.5 1.1v-7.6z" /></svg>
+            </div>
+            <div>
+              <h3>Windows <span class="tag tag-wip">开发中</span></h3>
+              <p>已在路线图上，敬请期待</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  // 滚动入场动画
-  (function () {
-    var items = document.querySelectorAll('.reveal');
-    if (!('IntersectionObserver' in window)) {
-      items.forEach(function (el) { el.classList.add('in'); });
-      return;
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) {
-          e.target.classList.add('in');
-          io.unobserve(e.target);
+    <!-- 下载 CTA -->
+    <section class="cta-final" id="download">
+      <div class="container reveal">
+        <img class="logo" src="assets/logo.gif" alt="KimiCodeBar Logo" />
+        <h2>现在就把限额<br />放到菜单栏上</h2>
+        <p>免费 · 开源 · 一分钟完成安装</p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            前往 GitHub Releases 下载
+          </a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/xifandev/KimiCodeBar/issues" target="_blank" rel="noopener">反馈问题 / 建议</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer>
+      <div class="container">
+        <div class="foot-inner">
+          <a class="nav-brand" href="#top" style="font-size: 14px">
+            <img src="assets/logo.gif" alt="" style="width: 22px; height: 18px; border-radius: 5px" />
+            KimiCodeBar
+          </a>
+          <span>© 2026 xifandev · MIT License</span>
+          <div class="foot-links">
+            <a href="https://github.com/xifandev/KimiCodeBar" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">Releases</a>
+            <a href="https://github.com/xifandev/KimiCodeBar/issues" target="_blank" rel="noopener">Issues</a>
+            <a href="https://www.kimi.com/code" target="_blank" rel="noopener">Kimi Code</a>
+          </div>
+          <p class="foot-note">KimiCodeBar 是由社区开发者维护的开源项目（Kimi 社区版），并非 Kimi 官方产品。 本项目通过 Kimi Code 官方公开接口获取用量数据，仅用于本地展示。</p>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // 模拟菜单栏实时时钟（macOS 中文风格）
+      (function () {
+        var el = document.getElementById('mockClock');
+        if (!el) return;
+        var weeks = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        function pad(n) {
+          return n < 10 ? '0' + n : '' + n;
         }
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    items.forEach(function (el, i) {
-      el.style.transitionDelay = (Math.min(i % 4, 3) * 60) + 'ms';
-      io.observe(el);
-    });
-  })();
-  // ============ KimiPanel 实时复刻：模板 + 交互 ============
-  // 结构与设计令牌依据 macOS/KimiCodeBar/KimiCodeBarApp.swift 最新源码
-  var KP_HTML = `
+        function tick() {
+          var d = new Date();
+          var h = d.getHours();
+          var ap = h < 12 ? '上午' : '下午';
+          var h12 = h % 12 || 12;
+          el.textContent = d.getMonth() + 1 + '月' + d.getDate() + '日 ' + weeks[d.getDay()] + ' ' + ap + h12 + ':' + pad(d.getMinutes());
+        }
+        tick();
+        setInterval(tick, 1000);
+      })();
+
+      // 滚动入场动画
+      (function () {
+        var items = document.querySelectorAll('.reveal');
+        if (!('IntersectionObserver' in window)) {
+          items.forEach(function (el) {
+            el.classList.add('in');
+          });
+          return;
+        }
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add('in');
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' },
+        );
+        items.forEach(function (el, i) {
+          el.style.transitionDelay = Math.min(i % 4, 3) * 60 + 'ms';
+          io.observe(el);
+        });
+      })();
+      // ============ KimiPanel 实时复刻：模板 + 交互 ============
+      // 结构与设计令牌依据 macOS/KimiCodeBar/KimiCodeBarApp.swift 最新源码
+      var KP_HTML = `
     <div class="kp-header">
       <div class="kp-logo"><div class="kp-logo-body"></div><div class="kp-eyes"><i></i><i></i></div></div>
       <span class="kp-title">KimiCodeBar</span>
@@ -1592,68 +2481,75 @@
       <span class="kp-chevron"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
     </a>`;
 
-  // 挂载所有复刻面板
-  document.querySelectorAll('.kp-mount').forEach(function (m) {
-    var kp = document.createElement('div');
-    kp.className = 'kp' + (m.getAttribute('data-theme') === 'light' ? ' kp-light' : '');
-    kp.innerHTML = KP_HTML;
-    if (m.style.cssText) kp.style.cssText = m.style.cssText;
-    m.replaceWith(kp);
-  });
+      // 挂载所有复刻面板
+      document.querySelectorAll('.kp-mount').forEach(function (m) {
+        var kp = document.createElement('div');
+        kp.className = 'kp' + (m.getAttribute('data-theme') === 'light' ? ' kp-light' : '');
+        kp.innerHTML = KP_HTML;
+        if (m.style.cssText) kp.style.cssText = m.style.cssText;
+        m.replaceWith(kp);
+      });
 
-  // Logo：眨眼随机偏移 + 左顾右盼（复刻 startRandomLooking）
-  document.querySelectorAll('.kp-eyes').forEach(function (eyes) {
-    var offset = -Math.random() * 3;
-    eyes.querySelectorAll('i').forEach(function (eye) {
-      eye.style.animationDelay = offset + 's';
-    });
-    var amplitude = 6.9;
-    var targets = [amplitude, 0, -amplitude, 0];
-    var idx = Math.floor(Math.random() * targets.length);
-    (function look() {
-      setTimeout(function () {
-        eyes.style.transform = 'translateX(' + targets[idx % targets.length] + 'px)';
-        idx++;
-        look();
-      }, 1000 + Math.random() * 2000);
-    })();
-  });
+      // Logo：眨眼随机偏移 + 左顾右盼（复刻 startRandomLooking）
+      document.querySelectorAll('.kp-eyes').forEach(function (eyes) {
+        var offset = -Math.random() * 3;
+        eyes.querySelectorAll('i').forEach(function (eye) {
+          eye.style.animationDelay = offset + 's';
+        });
+        var amplitude = 6.9;
+        var targets = [amplitude, 0, -amplitude, 0];
+        var idx = Math.floor(Math.random() * targets.length);
+        (function look() {
+          setTimeout(
+            function () {
+              eyes.style.transform = 'translateX(' + targets[idx % targets.length] + 'px)';
+              idx++;
+              look();
+            },
+            1000 + Math.random() * 2000,
+          );
+        })();
+      });
 
-  // 面板交互：刷新 loading / Kimi Web 启停重启
-  document.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-kp-action]');
-    if (!btn) return;
-    var kp = btn.closest('.kp');
-    var action = btn.getAttribute('data-kp-action');
+      // 面板交互：刷新 loading / Kimi Web 启停重启
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-kp-action]');
+        if (!btn) return;
+        var kp = btn.closest('.kp');
+        var action = btn.getAttribute('data-kp-action');
 
-    if (action === 'refresh') {
-      if (kp.classList.contains('kp-loading')) return;
-      kp.classList.add('kp-loading');
-      setTimeout(function () { kp.classList.remove('kp-loading'); }, 1100);
-      return;
-    }
+        if (action === 'refresh') {
+          if (kp.classList.contains('kp-loading')) return;
+          kp.classList.add('kp-loading');
+          setTimeout(function () {
+            kp.classList.remove('kp-loading');
+          }, 1100);
+          return;
+        }
 
-    if (action === 'toggle' || action === 'restart') {
-      if (btn.classList.contains('loading')) return;
-      btn.classList.add('loading');
-      setTimeout(function () {
-        btn.classList.remove('loading');
-        var badge = kp.querySelector('[data-kp-status]');
-        var toggle = kp.querySelector('[data-kp-action="toggle"] .kp-btn-label');
-        var openBtn = kp.querySelector('[data-kp-open]');
-        var running = kp.getAttribute('data-server') !== 'stopped';
-        if (action === 'toggle') running = !running;
-        kp.setAttribute('data-server', running ? 'running' : 'stopped');
-        badge.textContent = running ? '运行中' : '已停止';
-        badge.className = running ? 'kp-badge green' : 'kp-badge red';
-        badge.setAttribute('data-kp-status', '');
-        toggle.textContent = running ? '停止' : '启动';
-        openBtn.classList.toggle('disabled', !running);
-      }, action === 'restart' ? 1000 : 800);
-      return;
-    }
-  });
-</script>
-
-</body>
+        if (action === 'toggle' || action === 'restart') {
+          if (btn.classList.contains('loading')) return;
+          btn.classList.add('loading');
+          setTimeout(
+            function () {
+              btn.classList.remove('loading');
+              var badge = kp.querySelector('[data-kp-status]');
+              var toggle = kp.querySelector('[data-kp-action="toggle"] .kp-btn-label');
+              var openBtn = kp.querySelector('[data-kp-open]');
+              var running = kp.getAttribute('data-server') !== 'stopped';
+              if (action === 'toggle') running = !running;
+              kp.setAttribute('data-server', running ? 'running' : 'stopped');
+              badge.textContent = running ? '运行中' : '已停止';
+              badge.className = running ? 'kp-badge green' : 'kp-badge red';
+              badge.setAttribute('data-kp-status', '');
+              toggle.textContent = running ? '停止' : '启动';
+              openBtn.classList.toggle('disabled', !running);
+            },
+            action === 'restart' ? 1000 : 800,
+          );
+          return;
+        }
+      });
+    </script>
+  </body>
 </html>
