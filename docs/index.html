@@ -227,7 +227,24 @@
       /* ============ Hero ============ */
       .hero {
         padding: calc(var(--nav-h) + 64px) 0 40px;
-        text-align: center;
+        text-align: left;
+      }
+
+      /* Hero 左右布局：左 hero-shot（视觉） | 右 文字 + 下载按钮
+         列比例反过来（视觉列更大），跟下面 #login / #performance 那些
+         "文字左、视觉右"的 .split 不一样。 */
+      .hero-split {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 56px;
+        align-items: center;
+      }
+
+      @media (max-width: 880px) {
+        .hero-split {
+          grid-template-columns: 1fr;
+          gap: 40px;
+        }
       }
 
       .pill {
@@ -271,7 +288,7 @@
       }
 
       .hero .sub {
-        margin: 20px auto 0;
+        margin: 20px 0 0;
         max-width: 560px;
         font-size: 18px;
         color: var(--text-2);
@@ -297,8 +314,8 @@
       }
 
       /* ============ 产品面板展示 ============ */
-      .shot-wrap {
-        padding: 64px 0 20px;
+      .hero-shot-wrap {
+        padding: 0;
       }
 
       .hero-shot {
@@ -2019,8 +2036,8 @@
           width: 100%;
           justify-content: center;
         }
-        .shot-wrap {
-          padding-top: 96px;
+        .hero-shot-wrap {
+          padding-top: 0;
         }
       }
 
@@ -2060,8 +2077,8 @@
         .privacy .card {
           padding: 22px 20px;
         }
-        .shot-wrap {
-          padding-top: 80px;
+        .hero-shot-wrap {
+          padding-top: 0;
         }
         .hero .cta-row {
           margin-bottom: 12px;
@@ -2075,12 +2092,13 @@
 
       /* ============ Hero 循环演示 ============
          时序（10s 一轮）：
-         0–15%   镜头以 7D/5H 标签为中心推近：整个 hero-shot 区域被放大（外层页面的其他部分保持不动）
+         0–15%   镜头以 7D/5H 标签为中心推近：菜单栏在 hero-shot 盒子内局部放大
+                  （盒子本身的边框 / 圆角 / 阴影 / 尺寸保持不动，溢出部分被 overflow:hidden 切掉）
          15–28%  定格放大
-         28–42%  镜头拉回，hero-shot 恢复原尺寸
+         28–42%  镜头拉回，菜单栏恢复
          42–50%  正常视图短暂停留
          50–58%  鼠标从右下角飞向 7D/5H 芯片
-         58–63%  点击（波纹扩散 + 芯片高亮）
+         58–63%  点击（波纹扩散 + 芯片虚线高亮）
          63–66%  面板弹出
          66–90%  面板停留约 2.4s
          90–93%  面板收回
@@ -2088,19 +2106,22 @@
          96–100% 短暂停留后无缝循环
       */
       .hero-shot.demo-loop {
-        /* 整个 hero-shot（包括边框 / 圆角 / 阴影 / 背景 / 内部内容）作为"镜头下的场景"被放大；
-           transform-origin 对准 7D/5H 标签中心（Playwright 实测 46% / 4%），
-           所以放大时 widget 位置不动，hero-shot 其他内容向四周"被推开"；
-           overflow 改 visible，让放大的 hero-shot 能溢出到外层（不被父级裁切）。
-           box-shadow / border / background 跟着 scale——这跟 Cursor 视频里"整个窗口被镜头推近"的效果一致。 */
-        overflow: visible;
-        transform-origin: 46% 4%;
-        animation: demo-shot-zoom 10s ease-in-out infinite;
-        will-change: transform;
-        z-index: 5;
+        /* 盒子本身不动：保留原 overflow:hidden 切掉放大后溢出到盒子外的部分，
+           边框 / 圆角 / 阴影 / 尺寸稳定，外层页面布局也稳定。 */
       }
 
-      @keyframes demo-shot-zoom {
+      /* 菜单栏作为"镜头下的场景"在 hero-shot 盒子内被放大；
+         镜头中心对准 7D/5H 标签中心（Playwright 实测 widget 中心在 menubar 46% / 50% 处），
+         所以放大时 widget 位置不动，Apple 图标被推左、WiFi/电池/控制中心/时钟被推右。
+         溢出部分被 hero-shot 的 overflow:hidden 自动切掉，不会跑到盒子外。 */
+      .hero-shot.demo-loop .hero-menubar {
+        z-index: 5;
+        transform-origin: 46% 50%;
+        animation: demo-menubar-zoom 10s ease-in-out infinite;
+        will-change: transform;
+      }
+
+      @keyframes demo-menubar-zoom {
         0%,
         5% {
           transform: scale(1);
@@ -2254,12 +2275,47 @@
         }
       }
 
-      /* 7D/5H 额度芯片：跟着 menubar 一起被镜头放大；自己只负责点击瞬间的蓝光高亮 */
+      /* 7D/5H 额度芯片：跟着 menubar 一起被镜头放大；自己画一个虚线焦点框
+         + 点击瞬间的蓝光高亮。虚线作为 widget 自己的伪元素，跟着 widget 走，
+         在不同屏幕尺寸下不会错位（不需要绝对定位 + 复杂百分比计算）。 */
       .hero-shot.demo-loop .hero-widget {
         position: relative;
         z-index: 6;
         animation: demo-widget-glow 10s ease-in-out infinite;
         will-change: box-shadow, background;
+      }
+
+      /* 虚线焦点框：镜头放大到位时显示，缩回后隐藏。
+         用伪元素画在 widget 自己的位置上，inset: -4px 扩出 4px 包围 widget。 */
+      .hero-shot.demo-loop .hero-widget::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border: 1.5px dashed rgba(91, 147, 255, 0.85);
+        border-radius: 10px;
+        pointer-events: none;
+        opacity: 0;
+        animation: demo-widget-dashed 10s ease-in-out infinite;
+        will-change: opacity;
+      }
+
+      @keyframes demo-widget-dashed {
+        /* 镜头开始推进到放大到位之间：虚线渐渐显示 */
+        0%,
+        5% {
+          opacity: 0;
+        }
+        15% {
+          opacity: 1;
+        }
+        /* 镜头拉回到位：虚线渐隐 */
+        28% {
+          opacity: 1;
+        }
+        42%,
+        100% {
+          opacity: 0;
+        }
       }
 
       @keyframes demo-widget-glow {
@@ -2338,49 +2394,10 @@
     <!-- Hero -->
     <header class="hero" id="top">
       <div class="container">
-        <!-- <span class="pill reveal">
-          <span class="dot"></span>
-          <b>社区版</b>
-        </span> -->
-        <h1 class="reveal">
-          <!-- 菜单栏上的 -->
-          ✨免费开源
-          <br />
-          <span class="grad">Kimi Code 用量仪表盘</span>
-        </h1>
-        <div class="sec-divider hero-divider reveal" aria-hidden="true">
-          <span class="sec-divider-line"></span>
-          <span class="sec-divider-glow"></span>
-        </div>
-        <p class="sub reveal">
-          专为 <b>Kimi Code</b> 打造的菜单栏监控工具。<br />
-          抬头即见，限额一目了然。
-        </p>
-        <div class="cta-row reveal">
-          <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            macOS 版下载
-          </a>
-          <span class="btn btn-disabled btn-lg">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Windows 版下载
-            <span class="tag tag-wip">开发中</span>
-          </span>
-        </div>
-        <!-- <p class="hero-note reveal">通过 GitHub Releases 免费分发 · 数据仅存储在本地</p> -->
-      </div>
-
-      <!-- 产品面板展示 —— 循环演示 -->
-      <div class="container shot-wrap reveal">
-        <div class="hero-shot demo-loop" aria-label="KimiCodeBar 菜单栏用量监控演示">
+        <div class="hero-split">
+          <!-- 左侧：产品面板展示（循环演示） -->
+          <div class="hero-shot-wrap reveal">
+            <div class="hero-shot demo-loop" aria-label="KimiCodeBar 菜单栏用量监控演示">
           <div class="hero-glow"></div>
           <div class="hero-orb hero-orb-1"></div>
           <div class="hero-orb hero-orb-2"></div>
@@ -2443,6 +2460,44 @@
             </svg>
           </div>
           <div class="demo-ripple" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <!-- 右侧：标题 + 副标题 + 下载按钮 -->
+          <div class="reveal">
+            <h1>
+              ✨免费开源
+              <br />
+              <span class="grad">Kimi Code 用量仪表盘</span>
+            </h1>
+            <div class="sec-divider hero-divider" aria-hidden="true">
+              <span class="sec-divider-line"></span>
+              <span class="sec-divider-glow"></span>
+            </div>
+            <p class="sub">
+              专为 <b>Kimi Code</b> 打造的菜单栏监控工具。<br />
+              抬头即见，限额一目了然。
+            </p>
+            <div class="cta-row">
+              <a class="btn btn-primary btn-lg" href="https://github.com/xifandev/KimiCodeBar/releases" target="_blank" rel="noopener">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                macOS 版下载
+              </a>
+              <span class="btn btn-disabled btn-lg">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Windows 版下载
+                <span class="tag tag-wip">开发中</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </header>
