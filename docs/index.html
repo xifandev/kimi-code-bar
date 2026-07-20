@@ -419,13 +419,14 @@
         white-space: nowrap;
       }
 
-      /* 英文主标题字符长，适当缩小字号并允许换行，保持中文不变 */
+      /* 英文主标题字符长，适当缩小字号，保持中文不变 */
       html.lang-en .hero h1 {
         font-size: clamp(30px, 4.2vw, 46px);
         letter-spacing: -1.2px;
       }
       html.lang-en .hero h1 .grad {
-        white-space: normal;
+        font-size: clamp(26px, 3.6vw, 40px);
+        white-space: nowrap;
       }
 
       .hero .sub {
@@ -784,6 +785,10 @@
         font-size: 17px;
         font-weight: 700;
         margin-bottom: 8px;
+      }
+      html.lang-en .privacy .card h3 {
+        font-size: 15px;
+        white-space: nowrap;
       }
       .card p {
         font-size: 14px;
@@ -2123,6 +2128,9 @@
           font-size: 26px;
           letter-spacing: -0.8px;
         }
+        html.lang-en .hero h1 .grad {
+          font-size: 22px;
+        }
         .hero .sub {
           font-size: 15px;
         }
@@ -2212,6 +2220,9 @@
         html.lang-en .hero h1 {
           font-size: 24px;
           letter-spacing: -0.6px;
+        }
+        html.lang-en .hero h1 .grad {
+          font-size: 20px;
         }
         .hero .sub {
           font-size: 14px;
