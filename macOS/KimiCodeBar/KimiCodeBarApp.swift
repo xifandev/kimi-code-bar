@@ -4377,7 +4377,7 @@ final class KimiCodeBarModel: ObservableObject {
 
     func openKimiWeb() {
         let port = kimiServerState.port
-        // LaunchAgent 使用 --dangerous-bypass-auth 关闭 bearer-token 鉴权，
+        // 使用 --dangerous-bypass-auth 关闭 bearer-token 鉴权，
         // 直接打开本地地址即可，无需再拼接 #token=xxx。
         let urlString = "http://127.0.0.1:\(port)/"
 
@@ -4392,11 +4392,29 @@ final class KimiCodeBarModel: ObservableObject {
     }
 
     func startKimiServer() async {
-        // 通过 LaunchAgent 在后台启动 kimi web，不弹终端窗口。
-        // 服务由 launchd 管理，KimiCodeBar 退出/crash 后仍可继续运行。
-        let manager = KimiWebLaunchAgentManager.shared
-        await manager.install()
-        await manager.start()
+        // kimi web 是持续运行的前台命令，Kimi 0.28 起不再提供官方后台服务模式。
+        // 通过 Terminal.app 前台运行，让用户直接看到日志与生命周期，避免 launchd 后台环境带来的 WebSocket/流式异常。
+        dismissMenuBarPanel()
+
+        // 若已有实例在跑，避免重复打开 Terminal 造成端口冲突
+        let currentState = await detectKimiServerState()
+        guard currentState.status != .running else {
+            await refreshKimiServerState()
+            return
+        }
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = [
+            "-e",
+            """
+            tell application "Terminal"
+                activate
+                do script "kimi web --no-open --dangerous-bypass-auth"
+            end tell
+            """
+        ]
+        try? task.run()
 
         // 轮询等待 server 起来（最多 10 秒）
         for _ in 0..<10 {
@@ -4408,13 +4426,11 @@ final class KimiCodeBarModel: ObservableObject {
     }
 
     func stopKimiServer() async {
-        let manager = KimiWebLaunchAgentManager.shared
-
         // kimi web kill all：先 POST /api/v1/shutdown 优雅退出，再 SIGTERM/SIGKILL，停止全部实例
         _ = await runKimiCommand(arguments: ["web", "kill", "all"])
 
-        // 立即卸载 LaunchAgent，避免 KeepAlive 在进程退出后自动重启服务
-        await manager.stop()
+        // 清理可能残留的旧 LaunchAgent，避免 KeepAlive 反复拉起进程
+        let manager = KimiWebLaunchAgentManager.shared
         await manager.uninstall()
 
         // 给优雅退出一点时间
