@@ -4502,9 +4502,9 @@ final class KimiCodeBarModel: ObservableObject {
 
     /// 查找并结束所有 `kimi web` 进程。
     private func terminateKimiWebProcesses() async {
-        await Task.detached(priority: .utility) {
-            guard let pids = Self.findKimiWebPIDs(), !pids.isEmpty else { return }
+        guard let pids = Self.findKimiWebPIDs(), !pids.isEmpty else { return }
 
+        await Task.detached(priority: .utility) {
             for pid in pids {
                 kill(pid, SIGTERM)
             }
