@@ -90,7 +90,7 @@ struct ArchiveSettingsView: View {
 
                 // 自动归档设置
                 SettingsCard(
-                    footerText: languageManager.tr("开启后，KimiCodeBar 会每小时检查一次，将超过保留期限且未归档的会话自动标记为归档。")
+                    footerText: languageManager.tr("开启后，KimiCodeBar 会每小时检查一次本地 Kimi Code 会话，将超过保留期限且未归档的会话自动标记为归档。")
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         SettingsCardRow(
@@ -227,12 +227,6 @@ struct ArchiveSettingsView: View {
         .background(Color.kimiPanelBackground)
         .onAppear {
             Task { await manager.scanSessions() }
-        }
-        .onChange(of: manager.autoArchiveEnabled) { _, _ in
-            manager.restartTimer()
-        }
-        .onChange(of: manager.autoArchiveThreshold) { _, _ in
-            manager.restartTimer()
         }
         .alert(Text(LanguageManager.tr("归档完成")), isPresented: $showArchiveResult) {
             Button(languageManager.tr("确定"), role: .cancel) {}

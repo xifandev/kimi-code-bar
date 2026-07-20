@@ -49,8 +49,19 @@ struct KimiSession: Identifiable, Sendable {
 final class KimiArchiveManager: ObservableObject {
     static let shared = KimiArchiveManager()
 
-    @AppStorage("autoArchiveEnabled") var autoArchiveEnabled = false
-    @AppStorage("autoArchiveThreshold") var autoArchiveThreshold: ArchiveThreshold = .oneWeek
+    @Published var autoArchiveEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoArchiveEnabled, forKey: "autoArchiveEnabled")
+            restartTimer()
+        }
+    }
+
+    @Published var autoArchiveThreshold: ArchiveThreshold {
+        didSet {
+            UserDefaults.standard.set(autoArchiveThreshold.rawValue, forKey: "autoArchiveThreshold")
+            restartTimer()
+        }
+    }
 
     @Published var sessions: [KimiSession] = []
     @Published var isScanning = false
@@ -62,6 +73,13 @@ final class KimiArchiveManager: ObservableObject {
     private let scanInterval: TimeInterval = 60 * 60
 
     private init() {
+        autoArchiveEnabled = UserDefaults.standard.object(forKey: "autoArchiveEnabled") as? Bool ?? false
+        if let raw = UserDefaults.standard.string(forKey: "autoArchiveThreshold"),
+           let threshold = ArchiveThreshold(rawValue: raw) {
+            autoArchiveThreshold = threshold
+        } else {
+            autoArchiveThreshold = .oneWeek
+        }
         restartTimer()
     }
 

@@ -781,13 +781,13 @@
         }
       }
     },
-    "开启后，KimiCodeBar 会每小时检查一次，将超过保留期限且未归档的会话自动标记为归档。" : {
+    "开启后，KimiCodeBar 会每小时检查一次本地 Kimi Code 会话，将超过保留期限且未归档的会话自动标记为归档。" : {
       "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When enabled, KimiCodeBar checks every hour and automatically archives sessions that have passed the retention period."
+            "value" : "When enabled, KimiCodeBar checks local Kimi Code sessions every hour and automatically archives sessions that have passed the retention period."
           }
         }
       }
