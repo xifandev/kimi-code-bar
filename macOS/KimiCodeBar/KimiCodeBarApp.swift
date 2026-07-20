@@ -4386,51 +4386,34 @@ final class KimiCodeBarModel: ObservableObject {
     }
 
     func startKimiServer() async {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let uid = getuid()
-        let plistPath = "\(home)/Library/LaunchAgents/ai.moonshot.kimi-server.plist"
+        // Kimi CLI 0.28 起 kimi server 命令树废弃，改用 kimi web 前台运行
+        // 用 Process 后台 spawn，不 waitUntilExit（kimi web 是持续运行的前台命令）
+        // stdout/stderr 在 shell 层面重定向到 /dev/null，避免 Process 释放后 fd 关闭导致进程退出
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/bash")
+        task.arguments = ["-lc", "kimi web --no-open --dangerous-bypass-auth > /dev/null 2>&1"]
 
-        _ = await runShellCommand("/bin/launchctl bootstrap gui/\(uid) \(plistPath)")
-        try? await Task.sleep(nanoseconds: 3_000_000_000)
+        do {
+            try task.run()
+        } catch {
+            // 启动失败，refreshKimiServerState 会显示 stopped
+        }
+
+        // 轮询等待 server 起来（最多 10 秒）
+        for _ in 0..<10 {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            let state = await detectKimiServerState()
+            if state.status == .running { break }
+        }
         await refreshKimiServerState()
     }
 
     func stopKimiServer() async {
-        let uid = getuid()
-
-        _ = await runShellCommand("/bin/launchctl bootout gui/\(uid)/ai.moonshot.kimi-server || true")
-
-        for _ in 0..<10 {
-            let list = await runShellCommand("/bin/launchctl list | /usr/bin/grep ai.moonshot.kimi-server || true")
-            if list.output.isEmpty {
-                break
-            }
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-        }
-
+        // kimi web kill all：先 POST /api/v1/shutdown 优雅退出，再 SIGTERM/SIGKILL，停止全部实例
+        _ = await runKimiCommand(arguments: ["web", "kill", "all"])
+        // 给优雅退出一点时间
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
         await refreshKimiServerState()
-    }
-
-    private func runShellCommand(_ command: String) async -> (output: String, exitCode: Int32) {
-        return await Task.detached(priority: .utility) {
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/bin/bash")
-            task.arguments = ["-lc", command]
-
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = pipe
-
-            do {
-                try task.run()
-                task.waitUntilExit()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: data, encoding: .utf8) ?? ""
-                return (output.trimmingCharacters(in: .whitespacesAndNewlines), task.terminationStatus)
-            } catch {
-                return ("", -1)
-            }
-        }.value
     }
 
     private func detectKimiServerState() async -> KimiServerState {
