@@ -292,6 +292,7 @@
         max-width: 560px;
         font-size: 18px;
         color: var(--text-2);
+        text-align: center;
       }
 
       .hero .sub b {
@@ -2025,15 +2026,16 @@
           right: -4px;
         }
         .cta-row {
-          flex-direction: column;
+          flex-direction: row;
           align-items: stretch;
-          row-gap: 14px;
+          gap: 12px;
         }
         .hero .cta-row {
-          row-gap: 14px;
+          row-gap: 12px;
         }
         .cta-row .btn {
-          width: 100%;
+          flex: 1;
+          width: auto;
           justify-content: center;
         }
         .hero-shot-wrap {
@@ -2113,8 +2115,10 @@
       /* 菜单栏作为"镜头下的场景"在 hero-shot 盒子内被放大；
          镜头中心对准 7D/5H 标签中心（Playwright 实测 widget 中心在 menubar 46% / 50% 处），
          所以放大时 widget 位置不动，Apple 图标被推左、WiFi/电池/控制中心/时钟被推右。
-         溢出部分被 hero-shot 的 overflow:hidden 自动切掉，不会跑到盒子外。 */
+         溢出部分被 hero-shot 的 overflow:hidden 自动切掉，不会跑到盒子外。
+         放大倍数用 --demo-zoom 控制，窄屏下自动缩小避免溢出太多。 */
       .hero-shot.demo-loop .hero-menubar {
+        --demo-zoom: 2.4;
         z-index: 5;
         transform-origin: 46% 50%;
         animation: demo-menubar-zoom 10s ease-in-out infinite;
@@ -2128,11 +2132,28 @@
         }
         15%,
         28% {
-          transform: scale(2.4);
+          transform: scale(var(--demo-zoom));
         }
         42%,
         100% {
           transform: scale(1);
+        }
+      }
+
+      /* 窄屏下缩小放大比例 / 干脆不放大，避免放大后内容溢出 hero-shot 太多被 overflow:hidden 切掉。
+         关键约束：640px 以下 .hero-sys-icon 和 .hero-clock 都是 display:none，
+         此时 widget 被 justify-content 推到 hero-shot 右侧约 85% 处（不再是桌面端的 46%），
+         沿用桌面端 transform-origin 会导致 widget 跑出可视范围。
+         解决方案：640px 以下不放大（scale 1），只靠 widget 自带的虚线焦点框动画
+         来表达"被镜头聚焦"。880~640px 之间用 1.5x 缩小放大。 */
+      @media (max-width: 880px) {
+        .hero-shot.demo-loop .hero-menubar {
+          --demo-zoom: 1.5;
+        }
+      }
+      @media (max-width: 640px) {
+        .hero-shot.demo-loop .hero-menubar {
+          --demo-zoom: 1;
         }
       }
 
@@ -2485,7 +2506,7 @@
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                macOS 版下载
+                macOS 版
               </a>
               <span class="btn btn-disabled btn-lg">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -2493,7 +2514,7 @@
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Windows 版下载
+                Windows 版
                 <span class="tag tag-wip">开发中</span>
               </span>
             </div>
