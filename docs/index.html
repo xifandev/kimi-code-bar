@@ -2125,18 +2125,18 @@
       }
 
       /* ============ Hero 循环演示 ============
-         时序（10s 一轮）：
-         0–15%   镜头以 7D/5H 标签为中心推近：菜单栏在 hero-shot 盒子内局部放大
-                  （盒子本身的边框 / 圆角 / 阴影 / 尺寸保持不动，溢出部分被 overflow:hidden 切掉）
-         15–28%  定格放大
-         28–42%  镜头拉回，菜单栏恢复
-         42–52%  正常视图短暂停留
-         52–58%  鼠标直接出现在 7D/5H 芯片上（不再从右下角飞入）
-         58–63%  点击（波纹扩散 + 芯片虚线高亮）
-         63–66%  面板弹出
-         66–90%  面板停留约 2.4s
-         90–91%  面板收回
-         91–100% 鼠标直接消失（不再飞回右下角），短暂停留后无缝循环
+         时序（10s 一轮）—— 面板优先，避免页面打开空白：
+         0–5%    面板已弹出（页面打开即显示，避免空白）
+         5–18%   镜头放大菜单栏（聚焦 7D/5H 标签，虚线渐显）
+         18–30%  定格放大
+         30–45%  镜头拉回（虚线渐隐）
+         45–58%  面板保持显示
+         58–62%  面板收回
+         62–67%  鼠标淡入到 widget
+         67%     点击瞬间（波纹扩散 + widget 蓝光高亮）
+         67–72%  面板重新弹出（带回弹）
+         72–95%  面板停留约 2.3s
+         95–100% 鼠标淡出，面板保持 → 无缝循环到 0%
       */
       .hero-shot.demo-loop {
         /* 盒子本身不动：保留原 overflow:hidden 切掉放大后溢出到盒子外的部分，
@@ -2159,15 +2159,18 @@
       }
 
       @keyframes demo-menubar-zoom {
+        /* 0–5% 面板已弹出，菜单栏原尺寸 */
         0%,
         5% {
           transform: scale(1);
         }
-        15%,
-        28% {
+        /* 5–18% 镜头放大到 1.3x */
+        18%,
+        30% {
           transform: scale(var(--demo-zoom));
         }
-        42%,
+        /* 30–45% 镜头拉回原尺寸 */
+        45%,
         100% {
           transform: scale(1);
         }
@@ -2190,40 +2193,46 @@
         }
       }
 
-      /* 演示期间：面板默认收起，等点击后弹出 */
+      /* 演示期间：面板默认显示（0% 起就弹出，避免页面打开空白），
+         58–62% 收回，67–72% 鼠标点击后重新弹出 */
       .hero-shot.demo-loop .hero-panel {
-        opacity: 0;
+        opacity: 1;
         transform-origin: 50% 0%;
         animation: demo-panel-show 10s cubic-bezier(0.22, 1, 0.36, 1) infinite;
         will-change: transform, opacity;
       }
 
       @keyframes demo-panel-show {
+        /* 0–58% 面板保持显示（初始弹出状态） */
         0%,
+        58% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+        /* 58–62% 面板收回 */
         62% {
           opacity: 0;
           transform: scale(0.94) translateY(-10px);
         }
-        66% {
+        /* 62–67% 保持隐藏，等鼠标点击 */
+        67% {
+          opacity: 0;
+          transform: scale(0.94) translateY(-10px);
+        }
+        /* 67–72% 面板重新弹出（带回弹） */
+        70% {
           opacity: 1;
           transform: scale(1.02) translateY(0);
         }
-        68% {
+        72% {
           opacity: 1;
           transform: scale(0.99) translateY(0);
         }
-        71%,
-        90% {
+        /* 72–100% 面板保持显示，无缝循环到 0% */
+        75%,
+        100% {
           opacity: 1;
           transform: scale(1) translateY(0);
-        }
-        93% {
-          opacity: 0;
-          transform: scale(0.94) translateY(-6px);
-        }
-        100% {
-          opacity: 0;
-          transform: scale(0.94) translateY(-6px);
         }
       }
 
@@ -2252,15 +2261,18 @@
       }
 
       @keyframes demo-cursor-move {
+        /* 0–62% 鼠标隐藏（面板已弹出 + 放大阶段不需要鼠标） */
         0%,
-        52% {
+        62% {
           opacity: 0;
         }
-        53%,
-        90% {
+        /* 62–67% 鼠标淡入显示 */
+        63%,
+        95% {
           opacity: 1;
         }
-        91%,
+        /* 95–100% 鼠标淡出，无缝循环 */
+        96%,
         100% {
           opacity: 0;
         }
@@ -2287,20 +2299,22 @@
       }
 
       @keyframes demo-ripple {
+        /* 0–66% 波纹不显示 */
         0%,
-        60% {
+        66% {
           opacity: 0;
           transform: scale(0.2);
         }
-        63% {
+        /* 67% 点击瞬间：波纹扩散 */
+        67% {
           opacity: 1;
           transform: scale(0.45);
         }
-        70% {
+        74% {
           opacity: 0.35;
           transform: scale(1.2);
         }
-        76%,
+        80%,
         100% {
           opacity: 0;
           transform: scale(1.7);
@@ -2332,44 +2346,47 @@
       }
 
       @keyframes demo-widget-dashed {
-        /* 镜头开始推进到放大到位之间：虚线渐渐显示 */
+        /* 虚线跟着镜头放大显示，缩回时隐藏 */
         0%,
         5% {
           opacity: 0;
         }
-        15% {
+        /* 5–18% 镜头放大时虚线渐显 */
+        18% {
           opacity: 1;
         }
-        /* 镜头拉回到位：虚线渐隐 */
-        28% {
+        /* 18–30% 定格放大时保持显示 */
+        30% {
           opacity: 1;
         }
-        42%,
+        /* 30–45% 镜头拉回时虚线渐隐 */
+        45%,
         100% {
           opacity: 0;
         }
       }
 
       @keyframes demo-widget-glow {
-        /* 默认状态：原色、无高亮（由 menubar 的 scale 负责放大） */
+        /* 0–66% 默认状态（无高亮） */
         0%,
-        57% {
+        66% {
           box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 0 rgba(45, 117, 246, 0);
           background: rgba(255, 255, 255, 0.1);
         }
-        /* 被点击瞬间：蓝光高亮 */
-        63% {
+        /* 67% 被点击瞬间：蓝光高亮 */
+        67% {
           box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 3px rgba(91, 147, 255, 0.7), 0 0 22px rgba(91, 147, 255, 0.55);
           background: rgba(255, 255, 255, 0.24);
         }
-        74%,
+        /* 75–100% 恢复默认 */
+        75%,
         100% {
           box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 0 rgba(45, 117, 246, 0);
           background: rgba(255, 255, 255, 0.1);
         }
       }
 
-      /* 减少动效偏好：禁用循环，直接展示最终态 */
+      /* 减少动效偏好：禁用循环，面板默认显示 */
       @media (prefers-reduced-motion: reduce) {
         .hero-shot.demo-loop,
         .hero-shot.demo-loop .hero-panel,
@@ -2385,6 +2402,9 @@
         }
         .hero-shot.demo-loop .hero-menubar {
           transform: none;
+        }
+        .hero-shot.demo-loop .hero-widget::after {
+          opacity: 0;
         }
         .demo-cursor,
         .demo-ripple {
