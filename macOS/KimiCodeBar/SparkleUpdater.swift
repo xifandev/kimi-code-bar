@@ -8,7 +8,7 @@ final class SparkleUpdater {
 
     private init() {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
+            startingUpdater: true,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
