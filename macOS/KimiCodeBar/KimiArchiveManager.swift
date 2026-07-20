@@ -224,8 +224,7 @@ final class KimiArchiveManager: ObservableObject {
             return nil
         }
 
-        let updatedAtString = json["updatedAt"] as? String
-        guard let updatedAt = parseISODate(updatedAtString) else { return nil }
+        guard let updatedAt = parseISODate(json["updatedAt"]) else { return nil }
 
         let isArchived = (json["archived"] as? Bool) ?? false
         let title = (json["title"] as? String) ?? sessionURL.lastPathComponent
@@ -294,15 +293,22 @@ final class KimiArchiveManager: ObservableObject {
             return false
         }
 
+        let originalUpdatedAt = json["updatedAt"]
+
         json["archived"] = archived
 
         var custom = (json["custom"] as? [String: Any]) ?? [:]
         custom["archived"] = archived
         json["custom"] = custom
 
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        json["updatedAt"] = formatter.string(from: Date())
+        // 保持与原文件相同的时间戳格式，避免破坏 Kimi Code 的读取
+        if originalUpdatedAt is String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            json["updatedAt"] = formatter.string(from: Date())
+        } else if originalUpdatedAt is NSNumber {
+            json["updatedAt"] = Int(Date().timeIntervalSince1970 * 1000)
+        }
 
         guard let newData = try? JSONSerialization.data(
             withJSONObject: json,
@@ -335,18 +341,28 @@ final class KimiArchiveManager: ObservableObject {
             : LanguageManager.tr("更新于 %@", arguments: [relative])
     }
 
-    nonisolated static func parseISODate(_ string: String?) -> Date? {
-        guard let string = string else { return nil }
+    nonisolated static func parseISODate(_ value: Any?) -> Date? {
+        if let string = value as? String {
+            let fractionalFormatter = ISO8601DateFormatter()
+            fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractionalFormatter.date(from: string) {
+                return date
+            }
 
-        let fractionalFormatter = ISO8601DateFormatter()
-        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractionalFormatter.date(from: string) {
-            return date
+            let plainFormatter = ISO8601DateFormatter()
+            plainFormatter.formatOptions = [.withInternetDateTime]
+            return plainFormatter.date(from: string)
         }
 
-        let plainFormatter = ISO8601DateFormatter()
-        plainFormatter.formatOptions = [.withInternetDateTime]
-        return plainFormatter.date(from: string)
+        if let timestamp = value as? TimeInterval {
+            // Kimi Code 新版使用毫秒级 Unix 时间戳
+            if timestamp > 1_000_000_000_000 {
+                return Date(timeIntervalSince1970: timestamp / 1000)
+            }
+            return Date(timeIntervalSince1970: timestamp)
+        }
+
+        return nil
     }
 }
 
