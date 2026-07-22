@@ -707,6 +707,7 @@ struct KimiMenu: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHoveredUpdateLog = false
     @State private var isMenuVisible = false
+    @State private var showUpdateAlert = false
     @State private var kimiServerOperation: KimiServerOperation = .none
     @State private var isKimiServerRestartHintDismissed = false
 
@@ -891,7 +892,9 @@ struct KimiMenu: View {
             .onHover { isHoveredUpdateLog = $0 }
             .cursor(.pointingHand)
             .onTapGesture {
-                if let url = URL(string: "https://moonshotai.github.io/kimi-code/zh/release-notes/changelog.html") {
+                if model.pendingUpdateVersion != nil || model.hasCachedKimiUpdate {
+                    showUpdateAlert = true
+                } else if let url = URL(string: "https://moonshotai.github.io/kimi-code/zh/release-notes/changelog.html") {
                     NSWorkspace.shared.open(url)
                 }
             }
@@ -910,9 +913,16 @@ struct KimiMenu: View {
         .background(WindowVisibilityDetector(isVisible: $isMenuVisible))
         .onAppear {
             model.checkCachedKimiUpdate()
+            if model.pendingUpdateVersion != nil {
+                showUpdateAlert = true
+            }
             Task {
                 await model.loadKimiVersion()
                 await model.checkForKimiCLIUpdate()
+                // 版本已追平（例如刚在外部更新完 CLI），关闭基于过期状态弹出的更新提示
+                if model.pendingUpdateVersion == nil {
+                    showUpdateAlert = false
+                }
             }
         }
         .onChange(of: isMenuVisible) { _, isVisible in
@@ -925,12 +935,38 @@ struct KimiMenu: View {
                 }
                 // 面板打开时探测 App 新版本，只更新状态、不弹窗
                 SparkleUpdater.shared.checkForUpdateInformation()
+                // 基于缓存快速判断是否需要弹窗
+                model.checkCachedKimiUpdate()
+                if model.pendingUpdateVersion != nil {
+                    showUpdateAlert = true
+                }
                 // 刷新 KimiCode CLI 版本与更新状态
                 Task {
                     await model.loadKimiVersion()
                     await model.checkForKimiCLIUpdate()
+                    // 版本已追平（例如刚在外部更新完 CLI），关闭基于过期状态弹出的更新提示
+                    if model.pendingUpdateVersion == nil {
+                        showUpdateAlert = false
+                    }
                 }
             }
+        }
+        .popover(isPresented: $showUpdateAlert, arrowEdge: .trailing) {
+            UpdateAlertView(
+                currentVersion: formatKimiVersion(model.kimiVersion),
+                newVersion: model.pendingUpdateVersion ?? languageManager.tr("新版"),
+                onDismiss: {
+                    showUpdateAlert = false
+                    model.pendingUpdateVersion = nil
+                    // 一小时后再次提醒
+                    model.snoozedKimiUpdateUntil = Date().timeIntervalSince1970 + 3600
+                },
+                onInstall: {
+                    showUpdateAlert = false
+                    model.pendingUpdateVersion = nil
+                    Task { await installKimiCLIUpdate() }
+                }
+            )
         }
 
     }
