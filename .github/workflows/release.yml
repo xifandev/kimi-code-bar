@@ -86,7 +86,7 @@ jobs:
           files: |
             dist/KimiCodeBar-*-macOS.dmg
             dist/KimiCodeBar-*-sparkle-update.zip
-          body_path: CHANGELOG.md
+          generate_release_notes: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
