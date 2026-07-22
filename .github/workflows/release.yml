@@ -39,6 +39,7 @@ jobs:
             -configuration Release \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \
+            ENABLE_HARDENED_RUNTIME=NO \
             BUILD_DIR="$(pwd)/macOS/build"
 
       - name: Package
