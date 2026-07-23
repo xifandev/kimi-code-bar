@@ -59,32 +59,12 @@ jobs:
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             BUILD_DIR="$(pwd)/macOS/build"
 
-      - name: Package
-        run: |
-          mkdir -p dist
-          cp -R macOS/build/Release/KimiCodeBar.app dist/
-          cd dist
-          VERSION="${GITHUB_REF_NAME#v}"
-          # Sparkle 自动更新用 zip
-          zip -r "KimiCodeBar-${VERSION}-sparkle-update.zip" KimiCodeBar.app
-          # 用户首次安装用 dmg（明确标注 macOS，避免与后续 Windows 版混淆）
-          DMG_NAME="KimiCodeBar-${VERSION}-macOS.dmg"
-          create-dmg \
-            --volname "KimiCodeBar" \
-            --background "../macOS/Resources/dmg-background.png" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --app-drop-link 450 210 \
-            --icon "KimiCodeBar.app" 150 210 \
-            --no-internet-enable \
-            "${DMG_NAME}" \
-            "KimiCodeBar.app"
-
-      - name: Sign app and disk image
+      - name: Sign app
         env:
           SIGN_ID: "Developer ID Application: Shandong Gaite Network Co., Ltd. (Z2L7QJW4R7)"
         run: |
+          mkdir -p dist
+          cp -R macOS/build/Release/KimiCodeBar.app dist/
           APP="dist/KimiCodeBar.app"
 
           # 1. 重新签名 Sparkle 框架内部所有辅助二进制（保留原有 entitlements）
@@ -106,7 +86,30 @@ jobs:
           codesign -vvv --deep --strict "$APP"
           spctl -a -t exec -vv "$APP" || true
 
-          # 6. 签名 dmg
+      - name: Package
+        run: |
+          cd dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Sparkle 自动更新用 zip（必须在 app 签名完成后打包）
+          zip -r "KimiCodeBar-${VERSION}-sparkle-update.zip" KimiCodeBar.app
+          # 用户首次安装用 dmg（明确标注 macOS，避免与后续 Windows 版混淆）
+          DMG_NAME="KimiCodeBar-${VERSION}-macOS.dmg"
+          create-dmg \
+            --volname "KimiCodeBar" \
+            --background "../macOS/Resources/dmg-background.png" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 450 210 \
+            --icon "KimiCodeBar.app" 150 210 \
+            --no-internet-enable \
+            "${DMG_NAME}" \
+            "KimiCodeBar.app"
+
+      - name: Sign disk image
+        env:
+          SIGN_ID: "Developer ID Application: Shandong Gaite Network Co., Ltd. (Z2L7QJW4R7)"
+        run: |
           codesign --force --timestamp --options runtime --sign "$SIGN_ID" dist/KimiCodeBar-*-macOS.dmg
 
       - name: Notarize
