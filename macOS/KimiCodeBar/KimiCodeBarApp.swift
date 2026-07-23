@@ -2459,7 +2459,7 @@ final class SettingsWindowManager {
         )
         window.title = LanguageManager.tr("KimiCode Bar 设置")
         window.minSize = NSSize(width: 600, height: 520)
-        window.collectionBehavior = [.managed, .moveToActiveSpace, .canJoinAllSpaces]
+        window.collectionBehavior = [.managed, .canJoinAllSpaces]
         window.level = .floating
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(name: nil, dynamicProvider: { appearance in
