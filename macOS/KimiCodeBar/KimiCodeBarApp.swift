@@ -3450,8 +3450,7 @@ struct PanelCustomSettingsView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         SettingsCardRow(
-                            title: languageManager.tr("加油包余额卡片"),
-                            subtitle: languageManager.tr("显示加油包余额、本月消费及进度条")
+                            title: languageManager.tr("加油包余额卡片")
                         ) {
                             Toggle("", isOn: $model.showBoosterWalletCard)
                                 .labelsHidden()
@@ -3462,8 +3461,7 @@ struct PanelCustomSettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            title: languageManager.tr("Kimi Web 卡片"),
-                            subtitle: languageManager.tr("显示 Kimi Web 运行状态及启停按钮")
+                            title: languageManager.tr("Kimi Web 卡片")
                         ) {
                             Toggle("", isOn: $model.showKimiServerCard)
                                 .labelsHidden()
@@ -3474,8 +3472,7 @@ struct PanelCustomSettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            title: languageManager.tr("Kimi Code 版本号"),
-                            subtitle: languageManager.tr("显示 KimiCode CLI 版本号及更新状态")
+                            title: languageManager.tr("Kimi Code 版本号")
                         ) {
                             Toggle("", isOn: $model.showKimiVersionRow)
                                 .labelsHidden()
@@ -3486,8 +3483,7 @@ struct PanelCustomSettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            title: languageManager.tr("KimiCodeBar 版本行"),
-                            subtitle: languageManager.tr("显示 KimiCodeBar 版本号及更新状态，隐藏后检测到新版本时右上角显示更新入口")
+                            title: languageManager.tr("KimiCodeBar 版本行")
                         ) {
                             Toggle("", isOn: $model.showAppUpdateRow)
                                 .labelsHidden()

@@ -1994,17 +1994,6 @@
         }
       }
     },
-    "显示加油包余额、本月消费及进度条" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show booster pack balance, monthly spending, and progress bar"
-          }
-        }
-      }
-    },
     "Kimi Web 卡片" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2016,17 +2005,6 @@
         }
       }
     },
-    "显示 Kimi Web 运行状态及启停按钮" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Kimi Web status and start/stop buttons"
-          }
-        }
-      }
-    },
     "Kimi Code 版本号" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2034,17 +2012,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kimi Code Version"
-          }
-        }
-      }
-    },
-    "显示 KimiCode CLI 版本号及更新状态" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show KimiCode CLI version and update status"
           }
         }
       }
@@ -2067,17 +2034,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "KimiCodeBar Version Row"
-          }
-        }
-      }
-    },
-    "显示 KimiCodeBar 版本号及更新状态，隐藏后检测到新版本时右上角显示更新入口" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show KimiCodeBar version and update status. When hidden, an update badge appears in the top-right corner if a new version is detected"
           }
         }
       }
