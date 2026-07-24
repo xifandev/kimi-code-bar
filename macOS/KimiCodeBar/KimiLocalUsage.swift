@@ -177,6 +177,30 @@ struct LocalUsageCard: View {
         service.days(in: range)
     }
 
+    /// 首次扫描进行中（尚未拿到任何结果）：整张卡片内容区展示骨架屏；
+    /// 后续刷新复用上次结果，不闪烁。
+    private var isLoadingFirstTime: Bool {
+        service.isLoading && !service.hasScanned
+    }
+
+    /// 图表展示的天数：累计档限制为近 30 个自然日（全历史柱子太密不好看），
+    /// 大数字仍按全量累计；其余范围与 filteredDays 一致
+    private var chartDays: [LocalUsageDay] {
+        guard range == .all else { return filteredDays }
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date())) ?? .distantPast
+        return filteredDays.filter { $0.date >= start }
+    }
+
+    /// 指标标签随范围联动：累计使用 Token / 今日使用 Token / 7 天使用 Token
+    private var metricsLabelKey: String {
+        switch range {
+        case .all: return "累计使用 Token"
+        case .today: return "今日使用 Token"
+        case .week: return "7 天使用 Token"
+        }
+    }
+
     private var totalTokens: Int {
         filteredDays.reduce(0) { $0 + $1.totalTokens }
     }
@@ -190,7 +214,7 @@ struct LocalUsageCard: View {
     }
 
     private var maxDayTokens: Int {
-        filteredDays.map(\.totalTokens).max() ?? 0
+        chartDays.map(\.totalTokens).max() ?? 0
     }
 
     private var formattedTokens: (value: String, unit: String) {
@@ -203,14 +227,20 @@ struct LocalUsageCard: View {
     }
 
     /// 柱子密度随根数调整：累计（几十根）用窄柱密排，7天/今日用宽柱
-    private var barSpacing: CGFloat { filteredDays.count > 20 ? 2 : 6 }
-    private var barCornerRadius: CGFloat { filteredDays.count > 20 ? 1 : 3 }
+    private var barSpacing: CGFloat { chartDays.count > 20 ? 2 : 6 }
+    private var barCornerRadius: CGFloat { chartDays.count > 20 ? 1 : 3 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             headerRow
-            metricsRow
-            chartArea
+            if isLoadingFirstTime {
+                // 首次扫描：内容区整体骨架（大数字 + 图表），避免 0 值闪现
+                metricsSkeleton
+                chartSkeleton
+            } else {
+                metricsRow
+                chartArea
+            }
         }
         .padding(14)
         .background(Color.kimiCardBackground)
@@ -272,7 +302,7 @@ struct LocalUsageCard: View {
                     }
                 }
 
-                LText("使用 Token")
+                LText(metricsLabelKey)
                     .font(.system(size: 11))
                     .foregroundStyle(.kimiTextTertiary)
             }
@@ -295,14 +325,16 @@ struct LocalUsageCard: View {
 
     @ViewBuilder
     private var chartArea: some View {
-        if service.isLoading && !service.hasScanned {
-            // 首次加载骨架
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.kimiTextPrimary.opacity(0.06))
-                .frame(height: chartHeight + tooltipZoneHeight)
-        } else if filteredDays.isEmpty {
-            // 空态
+        if filteredDays.isEmpty {
+            // 空态：所选范围完全无记录（大数字同为 0，口径一致）
             LText("暂无会话记录")
+                .font(.system(size: 13))
+                .foregroundStyle(.kimiTextTertiary)
+                .frame(maxWidth: .infinity)
+                .frame(height: chartHeight + tooltipZoneHeight)
+        } else if chartDays.isEmpty {
+            // 仅累计档可能出现：历史有记录但近 30 天无记录
+            LText("近 30 天暂无记录")
                 .font(.system(size: 13))
                 .foregroundStyle(.kimiTextTertiary)
                 .frame(maxWidth: .infinity)
@@ -312,11 +344,41 @@ struct LocalUsageCard: View {
         }
     }
 
+    // MARK: 骨架屏（首次扫描未完成时展示，结构与 metricsRow / barChart 对齐）
+
+    /// 与 metricsRow 布局一致：左侧大数字占位 + 右侧命中率占位
+    private var metricsSkeleton: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                skeletonBlock(width: 84, height: 22)
+                skeletonBlock(width: 60, height: 12)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                skeletonBlock(width: 50, height: 22)
+                skeletonBlock(width: 48, height: 12)
+            }
+        }
+    }
+
+    /// 与 barChart 占位高度一致
+    private var chartSkeleton: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.kimiTextPrimary.opacity(0.06))
+            .frame(height: chartHeight + tooltipZoneHeight)
+    }
+
+    private func skeletonBlock(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color.kimiTextPrimary.opacity(0.08))
+            .frame(width: width, height: height)
+    }
+
     private var barChart: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
                 HStack(alignment: .bottom, spacing: barSpacing) {
-                    ForEach(filteredDays) { day in
+                    ForEach(chartDays) { day in
                         RoundedRectangle(cornerRadius: barCornerRadius)
                             .fill(barColor(for: day))
                             .frame(maxWidth: .infinity)
@@ -372,8 +434,8 @@ struct LocalUsageCard: View {
     }
 
     private func tooltipPosition(for day: LocalUsageDay, in size: CGSize) -> CGPoint {
-        let count = filteredDays.count
-        let index = filteredDays.firstIndex(where: { $0.id == day.id }) ?? 0
+        let count = chartDays.count
+        let index = chartDays.firstIndex(where: { $0.id == day.id }) ?? 0
         let centerX = size.width * (CGFloat(index) + 0.5) / CGFloat(max(count, 1))
         // tooltip 宽约 96，clamp 防止贴边时超出卡片
         let clampedX = min(max(centerX, 48), size.width - 48)
