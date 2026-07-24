@@ -171,7 +171,7 @@ struct KimiLabel: View {
     @StateObject private var languageManager = LanguageManager.shared
 
     var body: some View {
-        if let quota = model.quota {
+        if model.selectedProvider == .kimi, let quota = model.quota {
             Image(nsImage: MenuBarTextRenderer.image(
                 scheme: model.menuBarDisplayScheme,
                 weekly: quota.weekly.percentage,
@@ -732,6 +732,111 @@ struct KimiMenu: View {
             || sparkleUpdater.isUpdateReadyToRestart || model.pendingAppUpdateVersion != nil
     }
 
+    /// 当前平台是否正在加载
+    private var isProviderLoading: Bool {
+        switch model.selectedProvider {
+        case .kimi: return model.isLoading
+        case .deepseek: return model.deepseekState.isLoading
+        }
+    }
+
+    // MARK: - 平台 Tab 切换栏
+
+    private var providerTabBar: some View {
+        HStack(spacing: 6) {
+            ForEach(ProviderType.allCases) { provider in
+                providerTab(provider)
+            }
+        }
+        .padding(4)
+        .background(Color.kimiCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func providerTab(_ provider: ProviderType) -> some View {
+        let isSelected = model.selectedProvider == provider
+        return Button(action: {
+            model.selectedProvider = provider
+        }) {
+            LText(provider.displayName)
+                .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? .kimiTextPrimary : .kimiTextSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(isSelected ? Color.kimiTextPrimary.opacity(0.10) : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .cursor(.pointingHand)
+    }
+
+    // MARK: - Kimi 用量内容
+
+    private var kimiUsageContent: some View {
+        Group {
+            HStack(spacing: 12) {
+                UsageCard(
+                    title: languageManager.tr("本周用量"),
+                    subtitle: nil,
+                    percentage: model.quota?.weekly.percentage ?? 0,
+                    reset: model.quota?.weekly.timeUntilReset ?? "--",
+                    color: .kimiBlue,
+                    isLoading: model.isLoading
+                )
+
+                UsageCard(
+                    title: languageManager.tr("5小时用量"),
+                    subtitle: nil,
+                    percentage: model.quota?.fiveHour.percentage ?? 0,
+                    reset: model.quota?.fiveHour.timeUntilReset ?? "--",
+                    color: .orange,
+                    isLoading: model.isLoading
+                )
+            }
+
+            if model.showBoosterWalletCard {
+                BoosterWalletCard(
+                    wallet: model.quota?.boosterWallet,
+                    isLoading: model.isLoading
+                )
+            }
+
+            if model.showLocalUsageCard {
+                LocalUsageCard()
+            }
+        }
+    }
+
+    // MARK: - DeepSeek 余额内容
+
+    private var deepseekBalanceContent: some View {
+        let state = model.deepseekState
+        return Group {
+            if let balance = state.balance {
+                BalanceCard(
+                    providerName: "DeepSeek",
+                    balance: balance,
+                    isLoading: state.isLoading
+                )
+            } else if state.isLoading {
+                BalanceLoadingCard(providerName: "DeepSeek")
+            } else if let error = state.errorMessage {
+                BalanceErrorCard(
+                    providerName: "DeepSeek",
+                    message: error,
+                    consoleURL: ProviderType.deepseek.consoleURL
+                )
+            } else {
+                BalanceEmptyCard(
+                    providerName: "DeepSeek",
+                    consoleURL: ProviderType.deepseek.consoleURL
+                )
+            }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 14) {
             // Header
@@ -749,54 +854,30 @@ struct KimiMenu: View {
                 CommunityButton(url: githubURL)
             }
 
-            // 用量卡片
+            // 平台切换 Tab
+            providerTabBar
+
+            // 用量内容
             VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    UsageCard(
-                        title: languageManager.tr("本周用量"),
-                        subtitle: nil,
-                        percentage: model.quota?.weekly.percentage ?? 0,
-                        reset: model.quota?.weekly.timeUntilReset ?? "--",
-                        color: .kimiBlue,
-                        isLoading: model.isLoading
-                    )
-
-                    UsageCard(
-                        title: languageManager.tr("5小时用量"),
-                        subtitle: nil,
-                        percentage: model.quota?.fiveHour.percentage ?? 0,
-                        reset: model.quota?.fiveHour.timeUntilReset ?? "--",
-                        color: .orange,
-                        isLoading: model.isLoading
-                    )
+                switch model.selectedProvider {
+                case .kimi:
+                    kimiUsageContent
+                case .deepseek:
+                    deepseekBalanceContent
                 }
-
-                if model.showBoosterWalletCard {
-                    BoosterWalletCard(
-                        wallet: model.quota?.boosterWallet,
-                        isLoading: model.isLoading
-                    )
-                }
-
-                // 本地用量卡片：扫描本地会话记录（wire.jsonl usage.record）得出 Token 消耗
-                if model.showLocalUsageCard {
-                    LocalUsageCard()
-                }
-
-                // Kimi Web 卡片及重启提示条临时屏蔽（2026-07）：Kimi 官方将 Kimi Web 改为
-                // 纯前端展示，且移除了 web kill 等管理命令，启停管理失去意义。
-                // KimiServerCard / KimiServerRestartHint / startKimiServer / stopKimiServer
-                // 等实现全部保留，恢复时把对应调用加回此处即可。
             }
 
             // 操作按钮卡片
             HStack(spacing: 8) {
                 ActionButton(
                     title: languageManager.tr("控制台"),
-                    textIcon: "KIMI",
+                    icon: model.selectedProvider == .kimi ? nil : "safari",
+                    textIcon: model.selectedProvider == .kimi ? "KIMI" : nil,
                     action: {
                         dismissMenuBarPanel()
-                        NSWorkspace.shared.open(consoleURL)
+                        if let url = model.selectedProvider.consoleURL {
+                            NSWorkspace.shared.open(url)
+                        }
                     }
                 )
 
@@ -804,7 +885,7 @@ struct KimiMenu: View {
                     title: languageManager.tr("刷新"),
                     icon: "arrow.clockwise",
                     action: { model.refreshAll() },
-                    disabled: !model.hasCredential || model.isLoading
+                    disabled: !model.hasCredential || (model.isLoading && model.selectedProvider == .kimi)
                 )
 
                 ActionButton(
@@ -821,8 +902,8 @@ struct KimiMenu: View {
                 )
             }
 
-            // KimiCode CLI 版本行：点击跳转官方更新日志；检测到新版本时无视设置强制显示
-            if shouldShowKimiVersionRow {
+            // KimiCode CLI 版本行：仅 Kimi 平台时显示；检测到新版本时无视设置强制显示
+            if model.selectedProvider == .kimi && shouldShowKimiVersionRow {
                 HStack(alignment: .center, spacing: 10) {
                     Text("KimiCode CLI")
                         .font(.system(size: 13, weight: .medium))
@@ -885,8 +966,8 @@ struct KimiMenu: View {
                 }
             }
 
-            // KimiCodeBar 版本行：点击跳转 GitHub Release；检测到新版本时无视设置强制显示
-            if shouldShowAppUpdateRow {
+            // KimiCodeBar 版本行：仅 Kimi 平台时显示；检测到新版本时无视设置强制显示
+            if model.selectedProvider == .kimi && shouldShowAppUpdateRow {
                 AppUpdateRow()
             }
         }
@@ -894,7 +975,7 @@ struct KimiMenu: View {
         .frame(width: 340)
         .background(Color.kimiPanelBackground)
         .overlay {
-            if !model.hasCredential {
+            if model.selectedProvider == .kimi && !model.hasCredential {
                 LoginOverlayView(isMenuVisible: isMenuVisible)
             }
         }
@@ -904,39 +985,41 @@ struct KimiMenu: View {
             if model.pendingUpdateVersion != nil {
                 showUpdateAlert = true
             }
-            Task {
-                await model.loadKimiVersion()
-                await model.checkForKimiCLIUpdate()
-                // 版本已追平（例如刚在外部更新完 CLI），关闭基于过期状态弹出的更新提示
-                if model.pendingUpdateVersion == nil {
-                    showUpdateAlert = false
+            if model.selectedProvider == .kimi {
+                Task {
+                    await model.loadKimiVersion()
+                    await model.checkForKimiCLIUpdate()
+                    if model.pendingUpdateVersion == nil {
+                        showUpdateAlert = false
+                    }
                 }
             }
+            model.refreshCurrentProvider(showsLoading: false)
         }
         .onChange(of: isMenuVisible) { _, isVisible in
             if isVisible {
                 isKimiServerRestartHintDismissed = false
-                Task { await model.refreshKimiServerState() }
-                // 面板打开立即刷新一次额度，但避免与正在进行的请求并发
-                if !model.isLoading {
-                    model.refresh(showsLoading: false)
+                if model.selectedProvider == .kimi {
+                    Task { await model.refreshKimiServerState() }
                 }
-                // 面板打开时探测 App 新版本，只更新状态、不弹窗
+                // 面板打开立即刷新当前平台数据
+                model.refreshCurrentProvider(showsLoading: false)
+                // 面板打开时探测 App 新版本
                 SparkleUpdater.shared.checkForUpdateInformation()
-                // 面板打开时扫描一次本地会话用量（后台线程，3 分钟节流）
-                KimiLocalUsageService.shared.refreshIfNeeded()
-                // 基于缓存快速判断是否需要弹窗
+                if model.selectedProvider == .kimi {
+                    KimiLocalUsageService.shared.refreshIfNeeded()
+                }
                 model.checkCachedKimiUpdate()
                 if model.pendingUpdateVersion != nil {
                     showUpdateAlert = true
                 }
-                // 刷新 KimiCode CLI 版本与更新状态
-                Task {
-                    await model.loadKimiVersion()
-                    await model.checkForKimiCLIUpdate()
-                    // 版本已追平（例如刚在外部更新完 CLI），关闭基于过期状态弹出的更新提示
-                    if model.pendingUpdateVersion == nil {
-                        showUpdateAlert = false
+                if model.selectedProvider == .kimi {
+                    Task {
+                        await model.loadKimiVersion()
+                        await model.checkForKimiCLIUpdate()
+                        if model.pendingUpdateVersion == nil {
+                            showUpdateAlert = false
+                        }
                     }
                 }
             }
@@ -3103,6 +3186,8 @@ struct BasicSettingsView: View {
 
     @State private var editingKey = ""
     @State private var isEditingKey = false
+    @State private var editingDeepseekKey = ""
+    @State private var isEditingDeepseekKey = false
     @State private var quotaIntervalText = "5"
     @State private var updateIntervalText = "30"
     @FocusState private var focusedField: APISettingField?
@@ -3214,6 +3299,17 @@ struct BasicSettingsView: View {
                             apiKeySection
                         }
                     }
+                }
+
+                // DeepSeek API Key
+                SettingsCard(title: "DeepSeek API Key") {
+                    providerKeySection(
+                        provider: .deepseek,
+                        key: $model.deepseekKey,
+                        editingState: $editingDeepseekKey,
+                        isEditing: $isEditingDeepseekKey,
+                        prefixHint: "sk-"
+                    )
                 }
 
                 // 外观主题
@@ -3346,6 +3442,8 @@ struct BasicSettingsView: View {
         .onAppear {
             editingKey = model.key
             isEditingKey = model.key.isEmpty
+            editingDeepseekKey = model.deepseekKey
+            isEditingDeepseekKey = false
             quotaIntervalText = intervalText(from: model.quotaRefreshInterval)
             updateIntervalText = intervalText(from: model.updateCheckInterval)
             launchAtLoginManager.refresh()
@@ -3394,6 +3492,84 @@ struct BasicSettingsView: View {
         let prefix = String(key.prefix(7))
         let suffix = String(key.suffix(5))
         return "\(prefix)...\(suffix)"
+    }
+
+    /// 第三方平台 API Key 输入区域
+    private func providerKeySection(
+        provider: ProviderType,
+        key: Binding<String>,
+        editingState: Binding<String>,
+        isEditing: Binding<Bool>,
+        prefixHint: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                if isEditing.wrappedValue {
+                    SecureField("\(prefixHint)...", text: editingState)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: .infinity)
+                        .onChange(of: editingState.wrappedValue) { _, newValue in
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed != newValue {
+                                editingState.wrappedValue = trimmed
+                            }
+                        }
+                } else {
+                    Text(key.wrappedValue.isEmpty ? LanguageManager.tr("未配置") : maskedKey(key.wrappedValue))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(key.wrappedValue.isEmpty ? .kimiTextTertiary : .kimiTextSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.kimiTextPrimary.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+
+                Button(action: {
+                    if isEditing.wrappedValue {
+                        saveProviderKey(provider: provider, key: key, editingState: editingState, isEditing: isEditing)
+                    } else {
+                        editingState.wrappedValue = key.wrappedValue
+                        isEditing.wrappedValue = true
+                    }
+                }) {
+                    LText(isEditing.wrappedValue ? "保存" : "修改")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.kimiBlue)
+                .disabled(isEditing.wrappedValue && editingState.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .cursor(isEditing.wrappedValue && editingState.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .arrow : .pointingHand)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+
+            SettingsCardDivider()
+            SettingsCardRow(
+                title: LanguageManager.tr("获取 API Key"),
+                subtitle: LanguageManager.tr("前往 %@ 控制台创建并复制 API Key。", arguments: [provider.displayName])
+            ) {
+                if let url = provider.consoleURL {
+                    LinkRow(
+                        title: LanguageManager.tr("去控制台"),
+                        icon: "arrow.up.right",
+                        url: url
+                    )
+                } else {
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    private func saveProviderKey(provider: ProviderType, key: Binding<String>, editingState: Binding<String>, isEditing: Binding<Bool>) {
+        let trimmed = editingState.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        editingState.wrappedValue = trimmed
+        key.wrappedValue = trimmed
+        isEditing.wrappedValue = false
+        commitIntervals()
+        if model.selectedProvider == provider {
+            model.refreshCurrentProvider(showsLoading: false)
+        }
     }
 }
 
@@ -4157,6 +4333,176 @@ extension View {
     }
 }
 
+// MARK: - 多平台余额卡片
+
+struct BalanceCard: View {
+    let providerName: String
+    let balance: ProviderBalance
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                LText("%@ 余额", providerName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.kimiTextPrimary)
+
+                Spacer()
+
+                Text(balance.isAvailable ? LanguageManager.tr("可用") : LanguageManager.tr("不可用"))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(balance.isAvailable ? .green : .red)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((balance.isAvailable ? Color.green : Color.red).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(balance.currency == "CNY" ? "¥" : "$")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.kimiTextSecondary)
+                Text(String(format: "%.2f", balance.totalBalance))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(.kimiTextPrimary)
+                    .monospacedDigit()
+            }
+
+            if balance.grantedBalance > 0 || balance.toppedUpBalance > 0 {
+                VStack(spacing: 4) {
+                    if balance.grantedBalance > 0 {
+                        HStack {
+                            LText("赠送余额")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.kimiTextTertiary)
+                            Spacer()
+                            Text(String(format: "%.2f", balance.grantedBalance))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.kimiTextSecondary)
+                        }
+                    }
+                    if balance.toppedUpBalance > 0 {
+                        HStack {
+                            LText("充值余额")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.kimiTextTertiary)
+                            Spacer()
+                            Text(String(format: "%.2f", balance.toppedUpBalance))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.kimiTextSecondary)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.kimiTextPrimary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.kimiCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct BalanceLoadingCard: View {
+    let providerName: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            LText("%@ 余额", providerName)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.kimiTextPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            LoadingRing()
+                .frame(width: 28, height: 28)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(Color.kimiCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct BalanceErrorCard: View {
+    let providerName: String
+    let message: String
+    let consoleURL: URL?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                LText("%@ 余额", providerName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.kimiTextPrimary)
+                Spacer()
+            }
+
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(.red)
+
+            if let url = consoleURL {
+                Button(action: { NSWorkspace.shared.open(url) }) {
+                    LText("去控制台查看")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.kimiBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.kimiBlue.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .cursor(.pointingHand)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.kimiCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct BalanceEmptyCard: View {
+    let providerName: String
+    let consoleURL: URL?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                LText("%@ 余额", providerName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.kimiTextPrimary)
+                Spacer()
+            }
+
+            LText("请在设置中配置 API Key")
+                .font(.system(size: 12))
+                .foregroundStyle(.kimiTextSecondary)
+
+            if let url = consoleURL {
+                Button(action: { NSWorkspace.shared.open(url) }) {
+                    LText("获取 API Key")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.kimiBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.kimiBlue.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .cursor(.pointingHand)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.kimiCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
 // MARK: - 登录方式
 
 enum LoginMethod: String, CaseIterable, Identifiable {
@@ -4227,6 +4573,10 @@ final class KimiCodeBarModel: ObservableObject {
     @AppStorage("cachedKimiReleaseNotes") var cachedKimiReleaseNotes: String = ""
     @AppStorage("snoozedKimiUpdateUntil") var snoozedKimiUpdateUntil: Double = 0
 
+    // MARK: - 多平台支持
+    @AppStorage("selectedProvider") var selectedProviderRaw: String = ProviderType.kimi.rawValue
+    @AppStorage("deepseekApiKey") var deepseekKey = ""
+
     // MARK: - 面板自定义（用户控制各卡片是否显示）
     @AppStorage("showBoosterWalletCard") var showBoosterWalletCard: Bool = true
     @AppStorage("showLocalUsageCard") var showLocalUsageCard: Bool = true
@@ -4254,6 +4604,15 @@ final class KimiCodeBarModel: ObservableObject {
 
     @Published var kimiServerState = KimiServerState()
 
+    // MARK: - 多平台状态
+    @Published var selectedProvider: ProviderType = .kimi {
+        didSet {
+            selectedProviderRaw = selectedProvider.rawValue
+            refreshCurrentProvider(showsLoading: false)
+        }
+    }
+    @Published var deepseekState = ProviderState()
+
     var hasCachedKimiUpdate: Bool {
         guard !cachedKimiLatestVersion.isEmpty, kimiVersion != LanguageManager.tr("未检测到"), kimiVersion != LanguageManager.tr("检测中…") else { return false }
         return compareVersions(normalizeVersion(kimiVersion), normalizeVersion(cachedKimiLatestVersion)) == .orderedAscending
@@ -4272,19 +4631,33 @@ final class KimiCodeBarModel: ObservableObject {
 
     private let service = KimiCodeBarQuotaService()
     private let oauthService = KimiOAuthService()
+    private let deepseekService = DeepSeekService()
     private var oauthLoginTask: Task<Void, Never>?
     private var timer: Timer?
     private var updateTimer: Timer?
 
-    /// 当前是否已配置可用凭证（决定菜单栏是否提示去设置）
+    /// 当前选中平台是否有可用凭证
     var hasCredential: Bool {
-        switch loginMethod {
-        case .token: return !key.isEmpty
-        case .oauth: return oauthToken != nil
+        switch selectedProvider {
+        case .kimi:
+            switch loginMethod {
+            case .token: return !key.isEmpty
+            case .oauth: return oauthToken != nil
+            }
+        case .deepseek: return !deepseekKey.isEmpty
+        }
+    }
+
+    /// 当前选中平台的 API Key（Token 登录模式或非 Kimi 平台）
+    var currentApiKey: String {
+        switch selectedProvider {
+        case .kimi: return key
+        case .deepseek: return deepseekKey
         }
     }
 
     init() {
+        selectedProvider = ProviderType(rawValue: selectedProviderRaw) ?? .kimi
         oauthToken = KimiOAuthService.loadStoredToken()
         refresh(showsLoading: false)
         Task { await loadKimiVersion() }
@@ -4297,7 +4670,7 @@ final class KimiCodeBarModel: ObservableObject {
         timer?.invalidate()
         let interval = max(1.0, quotaRefreshInterval) * 60
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-            Task { @MainActor in self.refresh(showsLoading: false) }
+            Task { @MainActor in self.refreshCurrentProvider(showsLoading: false) }
         }
         timer?.tolerance = interval * 0.1
     }
@@ -4316,11 +4689,21 @@ final class KimiCodeBarModel: ObservableObject {
         startUpdateTimer()
     }
 
-    /// 拉取额度用量。
-    /// - Parameter showsLoading: 是否把 isLoading 置 true 触发 UI loading 态。
-    ///   仅手动点「刷新」按钮时传 true；后台场景（启动、定时器、面板打开、切登录方式、
-    ///   设置窗口 onAppear、saveKey）一律传 false，避免界面无谓闪烁。
+    /// 拉取当前选中平台的用量/余额。
+    func refreshCurrentProvider(showsLoading: Bool = true) {
+        switch selectedProvider {
+        case .kimi: refreshKimi(showsLoading: showsLoading)
+        case .deepseek: refreshDeepSeek(showsLoading: showsLoading)
+        }
+    }
+
+    /// 拉取 Kimi 额度用量（兼容旧调用方）。
     func refresh(showsLoading: Bool = true) {
+        refreshKimi(showsLoading: showsLoading)
+    }
+
+    /// 拉取 Kimi 额度用量。
+    private func refreshKimi(showsLoading: Bool = true) {
         if showsLoading {
             isLoading = true
         }
@@ -4360,9 +4743,73 @@ final class KimiCodeBarModel: ObservableObject {
                     if self.quota == nil {
                         self.text = "--"
                     }
-                    self.errorMessage = errorDescription(error)
+                    self.errorMessage = kimiErrorDescription(error)
                 }
             }
+        }
+    }
+
+    /// 拉取 DeepSeek 余额。
+    private func refreshDeepSeek(showsLoading: Bool = true) {
+        guard !deepseekKey.isEmpty else {
+            deepseekState = ProviderState(errorMessage: LanguageManager.tr("未配置 API Key"))
+            text = "DS --"
+            return
+        }
+
+        if showsLoading {
+            deepseekState.isLoading = true
+        }
+        deepseekState.errorMessage = nil
+
+        Task {
+            let result = await deepseekService.fetchBalance(apiKey: deepseekKey)
+            await MainActor.run {
+                deepseekState.isLoading = false
+                switch result {
+                case .success(let balance):
+                    deepseekState.balance = balance
+                    deepseekState.errorMessage = nil
+                    let amount = formatBalanceShort(balance.totalBalance)
+                    text = "DS \(amount)"
+                case .failure(let error):
+                    deepseekState.errorMessage = providerErrorDescription(error, provider: .deepseek)
+                    if deepseekState.balance == nil {
+                        text = "DS --"
+                    }
+                }
+            }
+        }
+    }
+
+    private func formatBalanceShort(_ amount: Double) -> String {
+        if amount >= 1000 {
+            return String(format: "%.1fk", amount / 1000)
+        }
+        return String(format: "%.0f", amount)
+    }
+
+    private func providerErrorDescription(_ error: ProviderError, provider: ProviderType) -> String {
+        switch error {
+        case .invalidKeyFormat:
+            return LanguageManager.tr("API Key 无效，请检查是否已正确配置")
+        case .badURL:
+            return LanguageManager.tr("请求地址无效")
+        case .networkError(let msg):
+            return LanguageManager.tr("网络错误：%@", arguments: [msg])
+        case .httpError(let code, let msg):
+            return LanguageManager.tr("%1$@ API 返回错误（%2$@）：%3$@", arguments: [provider.displayName, "\(code)", msg])
+        case .badResponse:
+            return LanguageManager.tr("无法解析 API 返回数据")
+        }
+    }
+
+    func refreshAll() {
+        refreshCurrentProvider()
+        Task {
+            await checkForKimiCLIUpdate()
+            await checkForAppUpdate()
+            await refreshKimiServerState()
         }
     }
 
@@ -4502,15 +4949,6 @@ final class KimiCodeBarModel: ObservableObject {
             return LanguageManager.tr("已取消授权")
         case .timeout:
             return LanguageManager.tr("授权超时，请重新发起授权")
-        }
-    }
-
-    func refreshAll() {
-        refresh()
-        Task {
-            await checkForKimiCLIUpdate()
-            await checkForAppUpdate()
-            await refreshKimiServerState()
         }
     }
 
@@ -4926,7 +5364,7 @@ final class KimiCodeBarModel: ObservableObject {
         }.value
     }
 
-    private func errorDescription(_ error: QuotaError) -> String {
+    private func kimiErrorDescription(_ error: QuotaError) -> String {
         switch error {
         case .invalidKeyFormat:
             return LanguageManager.tr("API Key 格式错误，应以 sk-kimi- 开头")
