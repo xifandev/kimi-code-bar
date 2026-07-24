@@ -2147,6 +2147,17 @@
           }
         }
       }
+    },
+    "发现新版本时会强制显示" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always shown when a new version is available"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

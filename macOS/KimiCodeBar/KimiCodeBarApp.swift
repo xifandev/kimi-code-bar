@@ -721,6 +721,17 @@ struct KimiMenu: View {
     private let consoleURL = URL(string: "https://www.kimi.com/code/console")!
     private let githubURL = URL(string: "https://github.com/xifandev/KimiCodeBar")!
 
+    /// CLI 版本行显示条件：用户开启，或检测到 CLI 新版本时强制显示（无视隐藏设置）
+    private var shouldShowKimiVersionRow: Bool {
+        model.showKimiVersionRow || model.pendingUpdateVersion != nil || model.hasCachedKimiUpdate
+    }
+
+    /// App 版本行显示条件：用户开启，或检测到 App 新版本（含下载失败、待重启）时强制显示（无视隐藏设置）
+    private var shouldShowAppUpdateRow: Bool {
+        model.showAppUpdateRow || sparkleUpdater.isUpdateAvailable || sparkleUpdater.didDownloadFail
+            || sparkleUpdater.isUpdateReadyToRestart || model.pendingAppUpdateVersion != nil
+    }
+
     var body: some View {
         VStack(spacing: 14) {
             // Header
@@ -733,12 +744,9 @@ struct KimiMenu: View {
 
                 Spacer()
 
-                // 隐藏了 KimiCodeBar 版本行且检测到新版本时，社区版按钮替换为「发现更新」
-                if !model.showAppUpdateRow && (sparkleUpdater.isUpdateAvailable || model.pendingAppUpdateVersion != nil) {
-                    AppUpdateBadgeButton()
-                } else {
-                    CommunityButton(url: githubURL)
-                }
+                // 检测到 App 新版本时版本行会强制显示（见 shouldShowAppUpdateRow），
+                // header 恒定显示社区版按钮，不再替换为「发现更新」（AppUpdateBadgeButton 实现保留备用）
+                CommunityButton(url: githubURL)
             }
 
             // 用量卡片
@@ -813,8 +821,8 @@ struct KimiMenu: View {
                 )
             }
 
-            // KimiCode CLI 版本行：点击跳转官方更新日志
-            if model.showKimiVersionRow {
+            // KimiCode CLI 版本行：点击跳转官方更新日志；检测到新版本时无视设置强制显示
+            if shouldShowKimiVersionRow {
                 HStack(alignment: .center, spacing: 10) {
                     Text("KimiCode CLI")
                         .font(.system(size: 13, weight: .medium))
@@ -877,8 +885,8 @@ struct KimiMenu: View {
                 }
             }
 
-            // KimiCodeBar 版本行：点击跳转 GitHub Release
-            if model.showAppUpdateRow {
+            // KimiCodeBar 版本行：点击跳转 GitHub Release；检测到新版本时无视设置强制显示
+            if shouldShowAppUpdateRow {
                 AppUpdateRow()
             }
         }
@@ -1640,8 +1648,11 @@ struct LinkRow: View {
     }
 }
 
-// MARK: - 发现更新按钮（隐藏版本行时的替代入口）
+// MARK: - 发现更新按钮（备用，当前未引用）
 
+/// 原用于「隐藏版本行且检测到新版本」时在 header 提供更新入口；
+/// 2026-07 起检测到新版本会强制显示版本行（见 KimiMenu.shouldShowAppUpdateRow），
+/// header 不再需要该替代入口，实现保留备用。
 struct AppUpdateBadgeButton: View {
     @StateObject private var sparkleUpdater = SparkleUpdater.shared
     @StateObject private var model = KimiCodeBarModel.shared
@@ -3445,7 +3456,8 @@ struct PanelCustomSettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            title: languageManager.tr("KimiCode CLI 版本号")
+                            title: languageManager.tr("KimiCode CLI 版本号"),
+                            subtitle: languageManager.tr("发现新版本时会强制显示")
                         ) {
                             Toggle("", isOn: $model.showKimiVersionRow)
                                 .labelsHidden()
@@ -3456,7 +3468,8 @@ struct PanelCustomSettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            title: languageManager.tr("KimiCodeBar 版本行")
+                            title: languageManager.tr("KimiCodeBar 版本行"),
+                            subtitle: languageManager.tr("发现新版本时会强制显示")
                         ) {
                             Toggle("", isOn: $model.showAppUpdateRow)
                                 .labelsHidden()
