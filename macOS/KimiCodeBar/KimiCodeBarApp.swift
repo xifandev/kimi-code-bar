@@ -770,55 +770,10 @@ struct KimiMenu: View {
                     )
                 }
 
-                if model.kimiServerNeedsRestart && !isKimiServerRestartHintDismissed && kimiServerOperation == .none {
-                    KimiServerRestartHint(
-                        runningVersion: model.kimiServerState.version,
-                        installedVersion: model.kimiVersion,
-                        onRestart: {
-                            isKimiServerRestartHintDismissed = true
-                            kimiServerOperation = .restarting
-                            Task {
-                                await model.restartKimiServer()
-                                await MainActor.run { kimiServerOperation = .none }
-                            }
-                        },
-                        onDismiss: {
-                            isKimiServerRestartHintDismissed = true
-                        }
-                    )
-                }
-
-                if model.showKimiServerCard {
-                    KimiServerCard(
-                        state: model.kimiServerState,
-                        operation: kimiServerOperation,
-                        onOpenWeb: {
-                            dismissMenuBarPanel()
-                            model.openKimiWeb()
-                        },
-                        onStart: {
-                            kimiServerOperation = .starting
-                            Task {
-                                await model.startKimiServer()
-                                await MainActor.run { kimiServerOperation = .none }
-                            }
-                        },
-                        onStop: {
-                            kimiServerOperation = .stopping
-                            Task {
-                                await model.stopKimiServer()
-                                await MainActor.run { kimiServerOperation = .none }
-                            }
-                        },
-                        onRestart: {
-                            kimiServerOperation = .restarting
-                            Task {
-                                await model.restartKimiServer()
-                                await MainActor.run { kimiServerOperation = .none }
-                            }
-                        }
-                    )
-                }
+                // Kimi Web 相关 UI 临时屏蔽（2026-07）：Kimi 官方将 Kimi Web 改为纯前端展示，
+                // 且移除了 web kill 等管理命令，启停管理失去意义。
+                // KimiServerCard / KimiServerRestartHint / startKimiServer / stopKimiServer 等
+                // 实现全部保留，恢复时把 KimiServerRestartHint 和 KimiServerCard 的调用加回此处即可。
             }
 
             // 操作按钮卡片
@@ -3456,16 +3411,8 @@ struct PanelCustomSettingsView: View {
 
                         SettingsCardDivider()
 
-                        SettingsCardRow(
-                            title: languageManager.tr("Kimi Web 卡片")
-                        ) {
-                            Toggle("", isOn: $model.showKimiServerCard)
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .cursor(.pointingHand)
-                        }
-
-                        SettingsCardDivider()
+                        // 「Kimi Web 卡片」开关随面板卡片一并临时屏蔽（2026-07），
+                        // showKimiServerCard 存储保留，恢复时把开关行加回即可。
 
                         SettingsCardRow(
                             title: languageManager.tr("Kimi Code 版本号")
