@@ -4241,7 +4241,7 @@ final class KimiCodeBarModel: ObservableObject {
     @AppStorage("showBoosterWalletCard") var showBoosterWalletCard: Bool = true
     @AppStorage("showKimiServerCard") var showKimiServerCard: Bool = true
     @AppStorage("showKimiVersionRow") var showKimiVersionRow: Bool = false
-    @AppStorage("showAppUpdateRow") var showAppUpdateRow: Bool = true
+    @AppStorage("showAppUpdateRow") var showAppUpdateRow: Bool = false
 
     @Published var text = "-- · --"
     @Published var quota: KimiQuota?
