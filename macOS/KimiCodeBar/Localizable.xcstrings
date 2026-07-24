@@ -2005,6 +2005,17 @@
         }
       }
     },
+    "已弃用。官方砍掉了 server 服务，临时启用请使用官方命令 “kimi web”" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deprecated. The official server service has been removed. To run it temporarily, use the official command \"kimi web\""
+          }
+        }
+      }
+    },
     "KimiCode CLI 版本号" : {
       "extractionState" : "stale",
       "localizations" : {

@@ -3411,8 +3411,20 @@ struct PanelCustomSettingsView: View {
 
                         SettingsCardDivider()
 
-                        // 「Kimi Web 卡片」开关随面板卡片一并临时屏蔽（2026-07），
-                        // showKimiServerCard 存储保留，恢复时把开关行加回即可。
+                        // 「Kimi Web 卡片」已弃用（2026-07）：官方砍掉 server 服务，
+                        // 置灰禁用展示，保留用户历史开关状态但不可操作。
+                        SettingsCardRow(
+                            title: languageManager.tr("Kimi Web 卡片"),
+                            subtitle: languageManager.tr("已弃用。官方砍掉了 server 服务，临时启用请使用官方命令 “kimi web”")
+                        ) {
+                            Toggle("", isOn: $model.showKimiServerCard)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .disabled(true)
+                        }
+                        .opacity(0.5)
+
+                        SettingsCardDivider()
 
                         SettingsCardRow(
                             title: languageManager.tr("KimiCode CLI 版本号")
